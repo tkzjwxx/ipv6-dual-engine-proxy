@@ -3,10 +3,7 @@ HY2+VMESS AGRO 双协议搭建
 # 🚀 纯 IPv6 VPS 极简双擎出站系统
 
 
-
-# 🚀 纯 IPv6 VPS 极简双擎出站系统
-
-专为纯 IPv6 VPS（如 HAX、Woiden）打造的极简、纯粹、高并发数据转发中枢。通过 WARP 提供 IPv4 访问能力，结合 Hysteria2 直连与 VMess Argo 隧道，实现速度与安全的双重保障。
+apt-get update -y && apt-get install -y curl wget && sed -i '/virtuozzo/d' /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null ; bash <(curl -sL https://raw.githubusercontent.com/tkzjwxx/-ipv6-VPS-/main/install.sh)
 
 ---
 
