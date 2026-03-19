@@ -24,4 +24,6 @@ apt-get update -y && apt-get install -y curl wget && sed -i '/virtuozzo/d' /etc/
 
 脚本运行期间会自动挂起并呼出勇哥的 WARP 菜单，请手动选择安装 WARP 单栈 IPv4 或双栈。看到成功获取到 WARP IP 后，输入 0 退出菜单，天网主程序会自动接力完成剩余部署。
 
-<img width="1343" height="541" alt="image" src="https://github.com/user-attachments/assets/80b21845-b1d7-4000-a0aa-a0b6aa7c58a4" />
+
+
+快捷键功能说明详细描述v🔗 提取节点与指南一键生成 HY2 直连节点与 VMess 节点链接，并附带 Argo 隧道映射配置参数说明。c📊 状态大盘极简表格视图，一秒查看 Sing-box、Argo 隧道进程状态及 WARP 出站连通性。w🌐 WARP 管理直通 WARP-GO 脚本菜单，方便后续重置 IP、切换节点或检查出站状态。r📜 实时日志实时滚动打印 Sing-box 核心运行日志，方便排查连接故障（按 Ctrl+C 退出）。u💥 物理级自毁一键停用并彻底删除 Sing-box、Argo 及 WARP 组件，将机器恢复至纯净初始状态。
