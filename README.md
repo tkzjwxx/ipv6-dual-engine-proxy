@@ -1,50 +1,67 @@
-# -ipv6-VPS-
-HY2+VMESS AGRO 双协议搭建
-# 🚀 纯 IPv6 VPS 极简双擎出站系统
+# 🚀 IPv6 Dual-Engine Proxy Stack / 极简双擎出站系统
 
-
-apt-get update -y && apt-get install -y curl wget && sed -i '/virtuozzo/d' /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null ; bash <(curl -sL https://raw.githubusercontent.com/tkzjwxx/-ipv6-VPS-/main/install.sh)
+[English](#english) | [简体中文](#chinese)
 
 ---
 
-## ✨ 核心特性
+<h2 id="english">🇺🇸 English</h2>
 
-* **🌍 WARP-GO 赋予全网访问**：自动部署并接管 IPv4 出站路由，解决纯 IPv6 机器无法访问外网的痛点。
-* **⚡ Hysteria2 原生直连**：监听公网 IPv6，利用高并发特性提供极致的直连速度。
-* **🛡️ VMess + Argo 绝对隐身**：VMess 节点仅监听本地 `127.0.0.1:10001`，不对外暴露任何端口，配合 Cloudflare Tunnel 实现真正的内网穿透与防封锁。
-* **⌨️ 全局快捷键管理**：摒弃繁琐的 Linux 命令，通过 5 个极简字母命令掌控全局。
+A **Minimal Dual-Engine Proxy System** tailored specifically for pure IPv6 VPS (like Woiden, Hax). 
 
----
+It seamlessly integrates **WARP-GO** (for IPv4 outbound) and **Sing-box** (as the core forwarder) to provide blazing-fast Hysteria2 direct connections and stealthy VMess tunnels via Cloudflare Argo.
 
-## 🛠️ 一键部署命令
+### ⚙️ Core Architecture
+* **Outbound Engine**: WARP-GO (Unlocks IPv4 access for pure IPv6 machines).
+* **Forwarding Core**: Sing-box (Lightweight, high-performance).
+* **Inbound Channels**: 
+  * ⚡ `Hysteria2`: Binds to IPv6 `::` (Port 8443) for raw, high-speed direct connections.
+  * 🛡️ `VMess + WS`: Binds to localhost `127.0.0.1:10001`, ready to be proxied seamlessly by Cloudflare Argo Tunnel.
 
-在新重置的空白纯 IPv6 机器上，**无需提前安装 curl**，直接复制以下引导命令在终端执行即可：
+### ✨ Highlights
+Five incredibly simple **single-letter global shortcuts** for management:
+* `v` - Show connection links (HY2 & VMess) and Argo Tunnel setup guide.
+* `c` - Real-time system status dashboard.
+* `w` - Quick access to the WARP menu.
+* `r` - View Sing-box real-time logs.
+* `u` - One-click complete uninstallation (Self-destruct).
+
+### 🚀 Quick Install
+Run the following command in your terminal as `root`:
 
 ```bash
-apt-get update -y && apt-get install -y curl wget && sed -i '/virtuozzo/d' /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null ; bash <(curl -sL [https://raw.githubusercontent.com/tkzjwxx/-ipv6-VPS-/main/install.sh](https://raw.githubusercontent.com/tkzjwxx/-ipv6-VPS-/main/install.sh))
-
-专为纯 IPv6 VPS（如 HAX、Woiden）打造的极简、纯粹、高并发数据转发中枢。通过 WARP 提供 IPv4 访问能力，结合 Hysteria2 直连与 VMess Argo 隧道，实现速度与安全的双重保障。
-
----
-
-## ✨ 核心特性
-
-* **🌍 WARP-GO 赋予全网访问**：自动部署并接管 IPv4 出站路由，解决纯 IPv6 机器无法访问外网的痛点。
-* **⚡ Hysteria2 原生直连**：监听公网 IPv6，利用高并发特性提供极致的直连速度。
-* **🛡️ VMess + Argo 绝对隐身**：VMess 节点仅监听本地 `127.0.0.1:10001`，不对外暴露任何端口，配合 Cloudflare Tunnel 实现真正的内网穿透与防封锁。
-* **⌨️ 全局快捷键管理**：摒弃繁琐的 Linux 命令，通过 5 个极简字母命令掌控全局。
+bash <(curl -sL [https://raw.githubusercontent.com/tkzjwxx/ipv6-dual-engine-proxy/main/install.sh](https://raw.githubusercontent.com/tkzjwxx/ipv6-dual-engine-proxy/main/install.sh))
+```
+*(⚠️ Note: During installation, the WARP menu will pop up. Follow the prompts to get an IPv4 address, then type `0` to exit the menu and continue the deployment.)*
 
 ---
 
-## 🛠️ 一键部署命令
+<h2 id="chinese">🇨🇳 简体中文</h2>
 
-在新重置的空白纯 IPv6 机器上，**无需提前安装 curl**，直接复制以下引导命令在终端执行即可：
+专为纯 IPv6 VPS（如 Woiden、Hax）量身定制的**极简双擎代理出站系统**。
+
+完美融合 **WARP-GO**（提供纯净 IPv4 出口）与 **Sing-box**（核心流媒体转发），为您同时提供极速的 Hysteria2 原生直连节点与高隐蔽性的 VMess (Argo) 备用隧道。
+
+### ⚙️ 核心架构
+* **出站引擎**：WARP-GO（彻底解决纯 IPv6 机器无 IPv4 访问权限的痛点）。
+* **转发核心**：Sing-box（极致轻量、性能拉满）。
+* **入站双通道**：
+  * ⚡ `Hysteria2`：绑定公网 IPv6 端口 `8443`，利用 UDP 协议提供无惧丢包的极速直通体验。
+  * 🛡️ `VMess + WS`：绑定本地回环端口 `127.0.0.1:10001`，专为 Cloudflare Argo Tunnel 内网穿透设计，即使 IP 被封也能满血复活。
+
+### ✨ 极致交互体验
+告别难记的长命令，独创 **5 大单字母全局快捷键**：
+* `v` 提取节点配置（包含完整的 Argo 穿透零门槛设置指南）。
+* `c` 唤出监控大盘（一秒看清 Sing-box、Argo、WARP 运行状态）。
+* `w` 呼出 WARP 面板（随时切换、重置出站 IP）。
+* `r` 实时滚动日志（精准排错查漏）。
+* `u` 彻底自毁卸载（不留一丝痕迹，还你纯净系统）。
+
+### 🚀 一键部署指令
+请使用 `root` 用户在终端执行以下命令：
 
 ```bash
-apt-get update -y && apt-get install -y curl wget && sed -i '/virtuozzo/d' /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null ; bash <(curl -sL [https://raw.githubusercontent.com/tkzjwxx/-ipv6-VPS-/main/install.sh](https://raw.githubusercontent.com/tkzjwxx/-ipv6-VPS-/main/install.sh))
+bash <(curl -sL [https://raw.githubusercontent.com/tkzjwxx/ipv6-dual-engine-proxy/main/install.sh](https://raw.githubusercontent.com/tkzjwxx/ipv6-dual-engine-proxy/main/install.sh))
+```
+*(⚠️ 交互提示：脚本运行中途会呼出勇哥的 WARP 菜单，请按照屏幕提示安装 WARP 并成功获取 IPv4 后，输入 `0` 退出菜单，脚本将自动接力完成剩余的 Sing-box 部署！)*
 
-脚本运行期间会自动挂起并呼出勇哥的 WARP 菜单，请手动选择安装 WARP 单栈 IPv4 或双栈。看到成功获取到 WARP IP 后，输入 0 退出菜单，天网主程序会自动接力完成剩余部署。
-
-
-
-快捷键功能说明详细描述v🔗 提取节点与指南一键生成 HY2 直连节点与 VMess 节点链接，并附带 Argo 隧道映射配置参数说明。c📊 状态大盘极简表格视图，一秒查看 Sing-box、Argo 隧道进程状态及 WARP 出站连通性。w🌐 WARP 管理直通 WARP-GO 脚本菜单，方便后续重置 IP、切换节点或检查出站状态。r📜 实时日志实时滚动打印 Sing-box 核心运行日志，方便排查连接故障（按 Ctrl+C 退出）。u💥 物理级自毁一键停用并彻底删除 Sing-box、Argo 及 WARP 组件，将机器恢复至纯净初始状态。
+---
