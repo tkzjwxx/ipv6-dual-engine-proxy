@@ -60,7 +60,7 @@ apt-get update -y && apt-get install -y curl && bash <(curl -sL https://raw.gith
 请使用 `root` 用户在终端执行以下命令：
 
 ```bash
-apt-get update -y && apt-get install -y curl && bash <(curl -sL [https://raw.githubusercontent.com/tkzjwxx/ipv6-dual-engine-proxy/main/install.sh](https://raw.githubusercontent.com/tkzjwxx/ipv6-dual-engine-proxy/main/install.sh))
+apt-get update -y && apt-get install -y curl && bash <(curl -sL https://raw.githubusercontent.com/tkzjwxx/ipv6-dual-engine-proxy/main/install.sh)
 ```
 *(⚠️ 交互提示：脚本运行中途会呼出勇哥的 WARP 菜单，请按照屏幕提示安装 WARP 并成功获取 IPv4 后，输入 `0` 退出菜单，脚本将自动接力完成剩余的 Sing-box 部署！)*
 
