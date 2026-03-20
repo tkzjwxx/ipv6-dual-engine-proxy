@@ -29,7 +29,7 @@ Five incredibly simple **single-letter global shortcuts** for management:
 Run the following command in your terminal as `root`:
 
 ```bash
-apt-get update -y && apt-get install -y curl && bash <(curl -sL [https://raw.githubusercontent.com/tkzjwxx/ipv6-dual-engine-proxy/main/install.sh](https://raw.githubusercontent.com/tkzjwxx/ipv6-dual-engine-proxy/main/install.sh))
+apt-get update -y && apt-get install -y curl && bash <(curl -sL https://raw.githubusercontent.com/tkzjwxx/ipv6-dual-engine-proxy/main/install.sh）
 ```
 *(⚠️ Note: During installation, the WARP menu will pop up. Follow the prompts to get an IPv4 address, then type `0` to exit the menu and continue the deployment.)*
 
