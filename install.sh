@@ -1,23 +1,23 @@
 #!/bin/bash
 # ====================================================================
-# 极简双擎出站系统 V1.2 (纯 IPv6 机器专供 | Argo全自动 + VLESS优选版)
-# 核心组件：WARP-GO (IPv4出站) + Sing-box (HY2 + VMess + VLESS)
+# 极简双轨三体矩阵系统 V1.4 (终极中控台版 | jq动态注入 + 双轨物理隔离)
+# 核心组件：WARP-GO + Sing-box(双轨6通道) + TCP轻量守护犬 + st中控台
 # ====================================================================
-echo -e "\033[1;36m🚀 正在执行【极简双擎出站系统 V1.2】初始化...\033[0m"
+echo -e "\033[1;36m🚀 正在执行【极简双轨三体矩阵系统 V1.4】绝对初始化...\033[0m"
 
-# 1. 环境清理与依赖补全
-systemctl stop sing-box w_master warp-go cloudflared 2>/dev/null
-rm -rf /etc/s-box /usr/bin/c /usr/bin/v /usr/bin/w /usr/bin/r /usr/bin/u /usr/bin/a
+# 1. 环境深度清理与底层依赖补全 (清理旧版 tw 和新版 st)
+systemctl stop sing-box warp-go cloudflared warp-dog 2>/dev/null
+rm -rf /etc/s-box /usr/bin/c /usr/bin/v /usr/bin/w /usr/bin/r /usr/bin/u /usr/bin/a /usr/bin/w_dog /usr/bin/tw /usr/bin/st /usr/local/bin/sb_gen
 apt-get update -y >/dev/null 2>&1
 apt-get install -y curl wget jq openssl cron nano coreutils >/dev/null 2>&1
 mkdir -p /etc/s-box
 
-# 2. 网络干预：解决拉取 GitHub/Gitlab 时 wget 假死
+# 2. 网络干预：解决拉取假死
 echo "prefer-family = IPv6" > ~/.wgetrc
 sed -i '/precedence ::ffff:0:0\/96  10/d' /etc/gai.conf 2>/dev/null
 
 # ====================================================================
-# 3. 部署 WARP (提供 IPv4 出口)
+# 3. 部署 WARP (提供 B轨 IPv4 兼容出口)
 # ====================================================================
 echo -e "\n\033[1;32m🌐 第一阶段：呼出勇哥 WARP 菜单，获取 IPv4...\033[0m"
 rm -f /root/CFwarp.sh
@@ -40,14 +40,14 @@ for i in {1..5}; do
     fi
 done
 if [ "$V4_READY" = false ]; then
-    echo -e "\n\033[1;41;37m 💀 WARP 未获取到 IPv4！无法提供出站，部署中止。\033[0m"
+    echo -e "\n\033[1;41;37m 💀 WARP 未获取到 IPv4！部署中止。\033[0m"
     exit 1
 fi
 
 # ====================================================================
-# 4. 部署 Sing-box (核心转发引擎 - 真七层嗅探)
+# 4. 部署 Sing-box 核心与状态机系统
 # ====================================================================
-echo -e "\n\033[1;33m📦 第二阶段：拉取 Sing-box 核心...\033[0m"
+echo -e "\n\033[1;33m📦 第二阶段：拉取 Sing-box 核心并植入状态机...\033[0m"
 S_URL=$(curl -sL --connect-timeout 5 -A "Mozilla/5.0" "https://api.github.com/repos/SagerNet/sing-box/releases/latest" | grep -o 'https://[^"]*linux-amd64\.tar\.gz' | head -n 1)
 [ -z "$S_URL" ] && S_URL="https://github.com/SagerNet/sing-box/releases/download/v1.10.1/sing-box-1.10.1-linux-amd64.tar.gz"
 curl -sL --connect-timeout 15 -o /tmp/sbox.tar.gz "$S_URL"
@@ -55,35 +55,56 @@ tar -xzf /tmp/sbox.tar.gz -C /tmp/ 2>/dev/null
 mv -f /tmp/sing-box-*/sing-box /etc/s-box/sing-box 2>/dev/null
 chmod +x /etc/s-box/sing-box
 
-# 生成证书与底层配置
 openssl ecparam -genkey -name prime256v1 -out /etc/s-box/hy2.key 2>/dev/null
 openssl req -new -x509 -days 365 -key /etc/s-box/hy2.key -out /etc/s-box/hy2.crt -subj "/CN=bing.com" 2>/dev/null
 
-cat << 'EOF' > /etc/s-box/sing-box.json
-{
-  "log": {
-    "level": "info",
-    "timestamp": true
-  },
-  "inbounds": [
-    { "type": "hysteria2", "tag": "hy2-in", "listen": "::", "listen_port": 8443, "users": [{"password": "PsiphonUS_2026"}], "tls": {"enabled": true, "server_name": "bing.com", "certificate_path": "/etc/s-box/hy2.crt", "key_path": "/etc/s-box/hy2.key"}, "sniff": true, "sniff_override_destination": true },
-    { "type": "vmess", "tag": "vmess-in", "listen": "127.0.0.1", "listen_port": 10001, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "alterId": 0}], "transport": {"type": "ws", "path": "/argo"}, "sniff": true, "sniff_override_destination": true },
-    { "type": "vless", "tag": "vless-in", "listen": "127.0.0.1", "listen_port": 10002, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "flow": ""}], "transport": {"type": "ws", "path": "/vless"}, "sniff": true, "sniff_override_destination": true }
-  ],
-  "outbounds": [
-    { "type": "direct", "tag": "direct-out" }
-  ],
-  "route": {
-    "rules": [
-      { "inbound": ["hy2-in", "vmess-in", "vless-in"], "outbound": "direct-out" }
-    ]
-  }
-}
+# 写入状态机初始环境变量 (1=开启, 0=关闭)
+cat << 'EOF' > /etc/s-box/status.env
+HY2_V6=1
+VLESS_V6=1
+VMESS_V6=1
+HY2_V4=1
+VLESS_V4=1
+VMESS_V4=1
 EOF
+
+# 创造神级架构：jq 动态生成引擎 sb_gen
+cat << 'EOF' > /usr/local/bin/sb_gen
+#!/bin/bash
+source /etc/s-box/status.env
+INBOUNDS="[]"
+V6_TAGS="[]"
+V4_TAGS="[]"
+
+[ "$HY2_V6" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "hysteria2", "tag": "hy2-v6-in", "listen": "::", "listen_port": 8443, "users": [{"password": "PsiphonUS_2026"}], "tls": {"enabled": true, "server_name": "bing.com", "certificate_path": "/etc/s-box/hy2.crt", "key_path": "/etc/s-box/hy2.key"}, "sniff": true, "sniff_override_destination": true}]') && V6_TAGS=$(echo "$V6_TAGS" | jq '. + ["hy2-v6-in"]')
+[ "$VLESS_V6" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "vless", "tag": "vless-v6-in", "listen": "127.0.0.1", "listen_port": 10001, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "flow": ""}], "transport": {"type": "ws", "path": "/vless-v6"}, "sniff": true, "sniff_override_destination": true}]') && V6_TAGS=$(echo "$V6_TAGS" | jq '. + ["vless-v6-in"]')
+[ "$VMESS_V6" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "vmess", "tag": "vmess-v6-in", "listen": "127.0.0.1", "listen_port": 10002, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "alterId": 0}], "transport": {"type": "ws", "path": "/vmess-v6"}, "sniff": true, "sniff_override_destination": true}]') && V6_TAGS=$(echo "$V6_TAGS" | jq '. + ["vmess-v6-in"]')
+
+[ "$HY2_V4" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "hysteria2", "tag": "hy2-v4-in", "listen": "::", "listen_port": 8444, "users": [{"password": "PsiphonUS_2026"}], "tls": {"enabled": true, "server_name": "bing.com", "certificate_path": "/etc/s-box/hy2.crt", "key_path": "/etc/s-box/hy2.key"}, "sniff": true, "sniff_override_destination": true}]') && V4_TAGS=$(echo "$V4_TAGS" | jq '. + ["hy2-v4-in"]')
+[ "$VLESS_V4" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "vless", "tag": "vless-v4-in", "listen": "127.0.0.1", "listen_port": 10003, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "flow": ""}], "transport": {"type": "ws", "path": "/vless-v4"}, "sniff": true, "sniff_override_destination": true}]') && V4_TAGS=$(echo "$V4_TAGS" | jq '. + ["vless-v4-in"]')
+[ "$VMESS_V4" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "vmess", "tag": "vmess-v4-in", "listen": "127.0.0.1", "listen_port": 10004, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "alterId": 0}], "transport": {"type": "ws", "path": "/vmess-v4"}, "sniff": true, "sniff_override_destination": true}]') && V4_TAGS=$(echo "$V4_TAGS" | jq '. + ["vmess-v4-in"]')
+
+RULES="[]"
+[ "$(echo "$V6_TAGS" | jq 'length')" -gt 0 ] && RULES=$(echo "$RULES" | jq --argjson tags "$V6_TAGS" '. + [{"inbound": $tags, "outbound": "direct-v6"}]')
+[ "$(echo "$V4_TAGS" | jq 'length')" -gt 0 ] && RULES=$(echo "$RULES" | jq --argjson tags "$V4_TAGS" '. + [{"inbound": $tags, "outbound": "direct-v4"}]')
+
+jq -n --argjson inbounds "$INBOUNDS" --argjson rules "$RULES" '{
+    log: {level: "fatal"},
+    inbounds: $inbounds,
+    outbounds: [
+      {type: "direct", tag: "direct-v6", domain_strategy: "ipv6_only"},
+      {type: "direct", tag: "direct-v4", domain_strategy: "ipv4_only"}
+    ],
+    route: {rules: $rules}
+}' > /etc/s-box/sing-box.json
+
+systemctl restart sing-box >/dev/null 2>&1
+EOF
+chmod +x /usr/local/bin/sb_gen
 
 cat > /etc/systemd/system/sing-box.service << 'EOF'
 [Unit]
-Description=Sing-box Core Service
+Description=Sing-box Dynamic Core
 After=network.target
 [Service]
 ExecStart=/etc/s-box/sing-box run -c /etc/s-box/sing-box.json
@@ -92,141 +113,147 @@ LimitNOFILE=512000
 [Install]
 WantedBy=multi-user.target
 EOF
+
+# 初始化生成一次 JSON 并启动
+/usr/local/bin/sb_gen
 systemctl daemon-reload && systemctl enable --now sing-box >/dev/null 2>&1
 
 # ====================================================================
-# 5. 写入 6 大极简管理快捷键
+# 5. 核心进化：植入 WARP 纯IP无感守护犬 (TCP Probe)
 # ====================================================================
-
-# [a] Argo 一键部署引擎
-cat << 'EOF' > /usr/bin/a
+echo -e "\n\033[1;33m🐕 第三阶段：植入 WARP TCP 无感守护犬...\033[0m"
+cat << 'EOF' > /usr/bin/w_dog
 #!/bin/bash
-clear
-echo -e "\033[1;36m=================================================================\033[0m"
-echo -e "\033[1;32m   ☁️  Argo 隧道全自动部署引擎 (Cloudflared)\033[0m"
-echo -e "\033[1;36m=================================================================\033[0m"
-echo -e "\033[1;33m👉 准备工作：请前往 Cloudflare 网页端创建 Tunnel，添加两台主机映射：\033[0m"
-echo -e "\033[1;37m   1. 子域名A (给 VMess) -> Service: HTTP -> URL: localhost:10001\033[0m"
-echo -e "\033[1;37m   2. 子域名B (给 VLESS) -> Service: HTTP -> URL: localhost:10002\033[0m"
-echo -e "\033[1;37m(请从网页提供的安装命令中，提取出一长串以 eyJ 开头的 Token 字符)\033[0m"
-echo ""
-read -p "🔑 请在此粘贴你的 Token: " ARGO_TOKEN
-
-if [[ -z "$ARGO_TOKEN" || "$ARGO_TOKEN" != eyJ* ]]; then
-    echo -e "\n\033[1;31m❌ 致命错误：Token 格式不正确或为空！它必须以 eyJ 开头。\033[0m"
-    exit 1
-fi
-
-echo -e "\n\033[1;35m⏳ 正在拉取官方 cloudflared 核心，请稍候...\033[0m"
-systemctl stop cloudflared 2>/dev/null
-rm -f /usr/local/bin/cloudflared /etc/systemd/system/cloudflared.service 2>/dev/null
-curl -sL -o /usr/local/bin/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
-chmod +x /usr/local/bin/cloudflared
-
-echo -e "\033[1;35m⚙️ 正在向宿主机注册并启动 Argo 系统服务...\033[0m"
-/usr/local/bin/cloudflared service install "$ARGO_TOKEN" >/dev/null 2>&1
-systemctl enable --now cloudflared >/dev/null 2>&1
-sleep 4
-
-if systemctl is-active --quiet cloudflared || pgrep -x "cloudflared" >/dev/null; then
-    echo -e "\n\033[1;32m🎉 部署大捷！Argo 隧道已在此机器上永久驻留并运行。\033[0m"
-    echo -e "\033[1;36m👉 请在终端输入 \033[1;33mc\033[1;36m 查看状态大盘确认连通性！\033[0m"
-else
-    echo -e "\n\033[1;31m💀 部署失败！请检查系统网络或 Token 是否有效。\033[0m"
-fi
+LOG_FILE="/etc/s-box/warp_dog.log"
+touch "$LOG_FILE"
+while true; do
+    sleep 60
+    if [ $(wc -l < "$LOG_FILE") -gt 1000 ]; then > "$LOG_FILE"; fi
+    if ! curl -s4 -m 3 "http://1.1.1.1/cdn-cgi/trace" >/dev/null 2>&1; then
+        sleep 5
+        if ! curl -s4 -m 3 "http://1.0.0.1/cdn-cgi/trace" >/dev/null 2>&1; then
+            echo "$(date '+%Y-%m-%d %H:%M:%S') | 🚨 WARP 死锁！执行心肺复苏..." >> "$LOG_FILE"
+            systemctl restart warp-go 2>/dev/null
+            sleep 15
+        fi
+    fi
+done
 EOF
+chmod +x /usr/bin/w_dog
+cat > /etc/systemd/system/warp-dog.service << 'EOF'
+[Unit]
+Description=WARP TCP Watchdog
+After=network.target
+[Service]
+ExecStart=/usr/bin/w_dog
+Restart=always
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload && systemctl enable --now warp-dog >/dev/null 2>&1
 
-# [v] 节点链接生成 (新增 VLESS 优选)
-cat << 'EOF' > /usr/bin/v
+# ====================================================================
+# 6. 缔造大一统中控台：st (System Terminal)
+# ====================================================================
+echo -e "\n\033[1;35m🌌 第四阶段：构建天网大一统中控台 (st)...\033[0m"
+cat << 'EOF' > /usr/bin/st
 #!/bin/bash
-IP=$(curl -s6 -m 5 api64.ipify.org 2>/dev/null || curl -s6 -m 5 icanhazip.com 2>/dev/null || curl -s6 -m 5 ident.me 2>/dev/null)
-[ -z "$IP" ] && IP=$(ip -6 addr show dev eth0 2>/dev/null | grep -oP '(?<=inet6\s)[0-9a-fA-F:]+' | head -n 1)
-[ -z "$IP" ] && IP="[IPv6获取失败_请手动替换]"
-W_IP=$(curl -s4 -m 5 api.ipify.org 2>/dev/null)
-UUID="d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a"
-PW="PsiphonUS_2026"
-clear
-echo -e "\033[1;36m=================================================================\033[0m"
-echo -e "\033[1;32m🎉 极简双擎系统 V1.2 - 节点配置指引\033[0m"
-echo -e "\033[1;36m=================================================================\033[0m"
-echo -e "\033[1;34m[当前 WARP 出站 IPv4]:\033[0m \033[1;37m${W_IP:-未连接}\033[0m\n"
+while true; do
+    source /etc/s-box/status.env
+    clear
+    echo -e "\033[1;36m==================================================================\033[0m"
+    echo -e "\033[1;37m               🛡️ 极简双轨三体矩阵总控台 (V1.4)               \033[0m"
+    echo -e "\033[1;36m==================================================================\033[0m"
+    
+    MEM=$(free -m | awk 'NR==2{printf "%.1f%%", $3*100/$2 }' 2>/dev/null || echo "未知")
+    CPU=$(top -bn1 2>/dev/null | grep load | awk '{printf "%.2f", $(NF-2)}' || echo "未知")
+    UPTIME=$(uptime -p 2>/dev/null | sed 's/up //')
+    W_IP=$(curl -s4 -m 3 api.ipify.org 2>/dev/null | grep -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}" | head -n 1)
+    [ -n "$W_IP" ] && W_ST="\033[1;32m🟢畅通\033[0m" || W_ST="\033[1;31m🔴断流\033[0m"
+    RESCUE_COUNT=$(grep "$(date '+%Y-%m-%d')" /etc/s-box/warp_dog.log 2>/dev/null | grep "心肺复苏" | wc -l)
+    
+    echo -e " 💻 宿主: 运行 \033[1;37m${UPTIME}\033[0m | CPU: \033[1;37m$CPU\033[0m | 内存: \033[1;37m$MEM\033[0m"
+    echo -e " 🌐 网络: WARP IPv4 ($W_ST) | TCP守护犬 (\033[1;32m🟢巡逻中\033[0m | 今日抢救: \033[1;33m${RESCUE_COUNT:-0}\033[0m 次)"
+    echo -e "------------------------------------------------------------------"
+    
+    [ "$HY2_V6" = "1" ] && S1="\033[1;32m🟢 运行中\033[0m" || S1="\033[1;31m💤 物理休眠\033[0m"
+    [ "$VLESS_V6" = "1" ] && S2="\033[1;32m🟢 运行中\033[0m" || S2="\033[1;31m💤 物理休眠\033[0m"
+    [ "$VMESS_V6" = "1" ] && S3="\033[1;32m🟢 运行中\033[0m" || S3="\033[1;31m💤 物理休眠\033[0m"
+    
+    [ "$HY2_V4" = "1" ] && S4="\033[1;32m🟢 运行中\033[0m" || S4="\033[1;31m💤 物理休眠\033[0m"
+    [ "$VLESS_V4" = "1" ] && S5="\033[1;32m🟢 运行中\033[0m" || S5="\033[1;31m💤 物理休眠\033[0m"
+    [ "$VMESS_V4" = "1" ] && S6="\033[1;32m🟢 运行中\033[0m" || S6="\033[1;31m💤 物理休眠\033[0m"
 
-echo -e "\033[1;35m【一】直连 Hysteria2 节点 (IPv6 原生极速直通保底)\033[0m"
-echo -e "\033[40;32m hysteria2://$PW@[$IP]:8443/?sni=bing.com&insecure=1#Direct-HY2 \033[0m\n"
-
-echo -e "\033[1;35m【二】Argo 隧道 VLESS 节点 (支持优选 IP/域名)\033[0m"
-echo -e "\033[40;32m vless://$UUID@icook.hk:443?encryption=none&security=tls&sni=专属CF域名B&type=ws&host=专属CF域名B&path=%2Fvless#Argo-VLESS-优选 \033[0m"
-echo -e "\033[1;90m * 节点默认接入 icook.hk 优选域名，你可以在客户端随时将其替换为其他的极品 IP\033[0m\n"
-
-echo -e "\033[1;35m【三】Argo 隧道 VMess 节点 (备用常规通道)\033[0m"
-json="{\"v\":\"2\",\"ps\":\"Argo-VMess-常规\",\"add\":\"专属CF域名A\",\"port\":\"443\",\"id\":\"$UUID\",\"aid\":\"0\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"专属CF域名A\",\"path\":\"/argo\",\"tls\":\"tls\"}"
-echo -e "\033[40;32m vmess://$(echo -n "$json" | base64 -w 0) \033[0m\n"
-
-echo -e "\033[1;33m💡 提示：如果你还没有启动 Argo 隧道守护进程，\033[0m"
-echo -e "\033[1;33m👉 请在终端输入 \033[1;36ma\033[1;33m 唤出全自动部署向导！\033[0m"
-echo -e "\033[1;36m=================================================================\033[0m"
+    echo -e " \033[1;35m>>> 🚄 A 轨：原生 IPv6 极速直通总线 (仅限V6网站，极限速度) <<<\033[0m"
+    echo -e "  [\033[1;36m1\033[0m] 切换 HY2    (原生UDP直连 8443)  | 状态: $S1"
+    echo -e "  [\033[1;36m2\033[0m] 切换 VLESS  (Argo穿透 10001)    | 状态: $S2"
+    echo -e "  [\033[1;36m3\033[0m] 切换 VMess  (Argo穿透 10002)    | 状态: $S3"
+    echo ""
+    echo -e " \033[1;34m>>> 🛸 B 轨：WARP IPv4 兼容穿透总线 (通杀全网，优质解锁) <<<\033[0m"
+    echo -e "  [\033[1;36m4\033[0m] 切换 HY2    (WARP底层中转 8444) | 状态: $S4"
+    echo -e "  [\033[1;36m5\033[0m] 切换 VLESS  (Argo穿透 10003)    | 状态: $S5"
+    echo -e "  [\033[1;36m6\033[0m] 切换 VMess  (Argo穿透 10004)    | 状态: $S6"
+    echo -e "------------------------------------------------------------------"
+    echo -e " \033[1;33m>>> ⚙️ 系统全局调度 <<<\033[0m"
+    echo -e "  [\033[1;36m7\033[0m] ☁️ 录入/更新 Argo 隧道 Token"
+    echo -e "  [\033[1;36m8\033[0m] 🔗 提取所有存活节点链接 (自动屏蔽休眠节点)"
+    echo -e "  [\033[1;36m9\033[0m] 📜 追踪 Sing-box 实时底层日志"
+    echo -e "  [\033[1;36m10\033[0m] ⚠️ 执行物理自毁程序 (删库跑路)"
+    echo -e "  [\033[1;36m0\033[0m] 🚪 退出面板"
+    echo -e "\033[1;36m==================================================================\033[0m"
+    
+    read -p "👉 请输入指令 (0-10): " CMD
+    case $CMD in
+        1) [ "$HY2_V6" = "1" ] && N=0 || N=1; sed -i "s/^HY2_V6=.*/HY2_V6=$N/" /etc/s-box/status.env; /usr/local/bin/sb_gen; echo -e "\033[1;32m✅ 状态切换完毕！\033[0m"; sleep 1 ;;
+        2) [ "$VLESS_V6" = "1" ] && N=0 || N=1; sed -i "s/^VLESS_V6=.*/VLESS_V6=$N/" /etc/s-box/status.env; /usr/local/bin/sb_gen; echo -e "\033[1;32m✅ 状态切换完毕！\033[0m"; sleep 1 ;;
+        3) [ "$VMESS_V6" = "1" ] && N=0 || N=1; sed -i "s/^VMESS_V6=.*/VMESS_V6=$N/" /etc/s-box/status.env; /usr/local/bin/sb_gen; echo -e "\033[1;32m✅ 状态切换完毕！\033[0m"; sleep 1 ;;
+        4) [ "$HY2_V4" = "1" ] && N=0 || N=1; sed -i "s/^HY2_V4=.*/HY2_V4=$N/" /etc/s-box/status.env; /usr/local/bin/sb_gen; echo -e "\033[1;32m✅ 状态切换完毕！\033[0m"; sleep 1 ;;
+        5) [ "$VLESS_V4" = "1" ] && N=0 || N=1; sed -i "s/^VLESS_V4=.*/VLESS_V4=$N/" /etc/s-box/status.env; /usr/local/bin/sb_gen; echo -e "\033[1;32m✅ 状态切换完毕！\033[0m"; sleep 1 ;;
+        6) [ "$VMESS_V4" = "1" ] && N=0 || N=1; sed -i "s/^VMESS_V4=.*/VMESS_V4=$N/" /etc/s-box/status.env; /usr/local/bin/sb_gen; echo -e "\033[1;32m✅ 状态切换完毕！\033[0m"; sleep 1 ;;
+        7)
+            echo -e "\n\033[1;33m👉 请在 CF 网页端根据需要添加以下映射：\033[0m"
+            echo -e "   10001 (VLESS-V6), 10002 (VMess-V6), 10003 (VLESS-V4), 10004 (VMess-V4)"
+            read -p "🔑 请粘贴 CF 提供的完整指令或 Token: " RAW_INPUT
+            ARGO_TOKEN=$(echo "$RAW_INPUT" | grep -oE 'eyJ[A-Za-z0-9_\-\.]+')
+            if [ -n "$ARGO_TOKEN" ]; then
+                echo -e "\033[1;35m⏳ 正在注册 Argo 系统服务...\033[0m"
+                systemctl stop cloudflared 2>/dev/null; rm -f /usr/local/bin/cloudflared
+                curl -sL -o /usr/local/bin/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 && chmod +x /usr/local/bin/cloudflared
+                /usr/local/bin/cloudflared service install "$ARGO_TOKEN" >/dev/null 2>&1
+                systemctl enable --now cloudflared >/dev/null 2>&1; echo -e "\033[1;32m🎉 Argo 部署完毕！\033[0m"; sleep 2
+            else
+                echo -e "\033[1;31m❌ 提取 Token 失败！\033[0m"; sleep 2
+            fi
+            ;;
+        8)
+            IP=$(curl -s6 -m 5 api64.ipify.org 2>/dev/null || ip -6 addr show dev eth0 2>/dev/null | grep -oP '(?<=inet6\s)[0-9a-fA-F:]+' | head -n 1)
+            UUID="d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a"; PW="PsiphonUS_2026"; echo ""
+            if [ "$HY2_V6" = "1" ]; then echo -e "\033[1;35m[A轨] HY2 (原生 V6):\033[0m\n\033[40;32m hysteria2://$PW@[$IP]:8443/?sni=bing.com&insecure=1#A轨-原生-HY2 \033[0m\n"; fi
+            if [ "$VLESS_V6" = "1" ]; then echo -e "\033[1;35m[A轨] VLESS (原生 V6 / Argo优选):\033[0m\n\033[40;32m vless://$UUID@icook.hk:443?encryption=none&security=tls&sni=专属域名A&type=ws&host=专属域名A&path=%2Fvless-v6#A轨-VLESS-优选 \033[0m\n"; fi
+            if [ "$VMESS_V6" = "1" ]; then echo -e "\033[1;35m[A轨] VMess (原生 V6 / Argo常规):\033[0m\n\033[40;32m vmess://$(echo -n "{\"v\":\"2\",\"ps\":\"A轨-VMess-常规\",\"add\":\"专属域名B\",\"port\":\"443\",\"id\":\"$UUID\",\"aid\":\"0\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"专属域名B\",\"path\":\"/vmess-v6\",\"tls\":\"tls\"}" | base64 -w 0) \033[0m\n"; fi
+            
+            if [ "$HY2_V4" = "1" ]; then echo -e "\033[1;34m[B轨] HY2 (WARP V4兼容):\033[0m\n\033[40;32m hysteria2://$PW@[$IP]:8444/?sni=bing.com&insecure=1#B轨-WARP-HY2 \033[0m\n"; fi
+            if [ "$VLESS_V4" = "1" ]; then echo -e "\033[1;34m[B轨] VLESS (WARP V4 / Argo优选):\033[0m\n\033[40;32m vless://$UUID@icook.hk:443?encryption=none&security=tls&sni=专属域名C&type=ws&host=专属域名C&path=%2Fvless-v4#B轨-VLESS-优选 \033[0m\n"; fi
+            if [ "$VMESS_V4" = "1" ]; then echo -e "\033[1;34m[B轨] VMess (WARP V4 / Argo常规):\033[0m\n\033[40;32m vmess://$(echo -n "{\"v\":\"2\",\"ps\":\"B轨-VMess-常规\",\"add\":\"专属域名D\",\"port\":\"443\",\"id\":\"$UUID\",\"aid\":\"0\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"专属域名D\",\"path\":\"/vmess-v4\",\"tls\":\"tls\"}" | base64 -w 0) \033[0m\n"; fi
+            read -n 1 -s -r -p "按任意键返回菜单..."
+            ;;
+        9) echo -e "\033[1;36m📜 追踪底层日志 (Ctrl+C 退出)...\033[0m"; journalctl -u sing-box --no-pager --output cat -f -n 50 ;;
+        10)
+            echo -e "\033[1;31m⚠️ 正在执行物理自毁...\033[0m"
+            systemctl stop sing-box cloudflared warp-go warp-dog 2>/dev/null
+            systemctl disable sing-box cloudflared warp-dog 2>/dev/null
+            rm -rf /etc/s-box /usr/local/bin/sb_gen /usr/local/bin/cloudflared /etc/systemd/system/cloudflared.service /etc/systemd/system/sing-box.service /etc/systemd/system/warp-dog.service /usr/bin/w_dog /usr/bin/tw /usr/bin/st
+            systemctl daemon-reload
+            [ -f "/root/CFwarp.sh" ] && bash /root/CFwarp.sh
+            rm -f /root/CFwarp.sh
+            echo -e "\033[1;32m🎉 彻底物理超度完毕！系统已恢复出厂纯净。\033[0m"; exit 0
+            ;;
+        0) clear; exit 0 ;;
+        *) echo -e "\033[1;31m❌ 无效指令！\033[0m"; sleep 1 ;;
+    esac
+done
 EOF
+chmod +x /usr/bin/st
 
-# [c] 状态大盘
-cat << 'EOF' > /usr/bin/c
-#!/bin/bash
-clear
-echo -e "\033[1;36m==================================================================\033[0m"
-echo -e "\033[1;37m                   🛡️ 极简出站系统监控大盘 V1.2                   \033[0m"
-echo -e "\033[1;36m==================================================================\033[0m"
-
-MEM=$(free -m | awk 'NR==2{printf "%.1f%%", $3*100/$2 }' 2>/dev/null || echo "未知")
-CPU=$(top -bn1 2>/dev/null | grep load | awk '{printf "%.2f", $(NF-2)}' || echo "未知")
-UPTIME=$(uptime -p 2>/dev/null | sed 's/up //')
-echo -e "\033[1;34m💻 [宿主状态]\033[0m 持续运行: \033[1;37m${UPTIME:-未知}\033[0m | CPU负载: \033[1;37m$CPU\033[0m | 内存: \033[1;37m$MEM\033[0m"
-echo "------------------------------------------------------------------"
-echo -e " 组件名称         | 运行状态   | 核心信息"
-echo "------------------------------------------------------------------"
-
-if systemctl is-active --quiet sing-box; then S_C="\033[1;32m"; S_T="🟢运行中"; else S_C="\033[1;31m"; S_T="🔴已停止"; fi
-printf " %-14s | ${S_C}%-8s\033[0m | %s\n" "Sing-box 核心" "$S_T" "公网:8443(HY2) 局域:10001(VM) 10002(VL)"
-
-if systemctl is-active --quiet cloudflared || pgrep -x "cloudflared" >/dev/null; then C_C="\033[1;32m"; C_T="🟢已连接"; else C_C="\033[1;33m"; C_T="🟡未运行"; fi
-printf " %-14s | ${C_C}%-8s\033[0m | %s\n" "Argo 隧道" "$C_T" "Cloudflare 内网穿透守护中"
-
-W_IP=$(curl -s4 -m 3 api.ipify.org 2>/dev/null | grep -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}" | head -n 1)
-if [ -n "$W_IP" ]; then W_C="\033[1;32m"; W_T="🟢畅通"; W_INFO="IPv4: $W_IP"; else W_C="\033[1;31m"; W_T="🔴断联"; W_INFO="等待路由握手或出口故障"; fi
-printf " %-14s | ${W_C}%-8s\033[0m | %s\n" "WARP 出口" "$W_T" "$W_INFO"
-
-echo -e "\033[1;36m==================================================================\033[0m"
-EOF
-
-# [w] WARP 直通车
-cat << 'EOF' > /usr/bin/w
-#!/bin/bash
-if [ -f "/root/CFwarp.sh" ]; then bash /root/CFwarp.sh; else echo "⚠️ WARP 脚本文件丢失"; fi
-EOF
-
-# [r] 实时日志
-cat << 'EOF' > /usr/bin/r
-#!/bin/bash
-echo -e "\033[1;36m📜 正在跟踪 Sing-box 实时日志 (按 Ctrl+C 退出)...\033[0m\n"
-journalctl -u sing-box --no-pager --output cat -f -n 50
-EOF
-
-# [u] 自毁卸载
-cat << 'EOF' > /usr/bin/u
-#!/bin/bash
-clear; echo -e "\033[1;31m⚠️ 正在卸载核心组件...\033[0m"
-systemctl stop sing-box cloudflared warp-go 2>/dev/null
-systemctl disable sing-box cloudflared 2>/dev/null
-rm -rf /etc/s-box /usr/bin/c /usr/bin/v /usr/bin/w /usr/bin/r /usr/bin/u /usr/bin/a /etc/systemd/system/sing-box.service
-rm -f /usr/local/bin/cloudflared /etc/systemd/system/cloudflared.service 2>/dev/null
-systemctl daemon-reload
-echo -e "\033[1;33m👉 正在唤出 WARP 菜单，请选择卸载 WARP\033[0m"
-[ -f "/root/CFwarp.sh" ] && bash /root/CFwarp.sh
-rm -f /root/CFwarp.sh
-sed -i '/prefer-family = IPv6/d' ~/.wgetrc 2>/dev/null
-echo "🎉 物理超度完毕！机器已恢复纯净状态。"
-EOF
-
-chmod +x /usr/bin/v /usr/bin/c /usr/bin/w /usr/bin/r /usr/bin/u /usr/bin/a
-echo -e "\n\033[1;32m🎉 极简双擎系统 V1.2 部署完毕！\033[0m"
-echo -e "\033[1;37m👉 录入隧道：输入 \033[1;36ma\033[1;37m 一键部署 Argo。\033[0m"
-echo -e "\033[1;37m👉 提取节点：输入 \033[1;36mv\033[1;37m 提取 VLESS 优选 / VMess 节点。\033[0m"
-echo -e "\033[1;37m👉 监控系统：输入 \033[1;36mc\033[1;37m 查看状态与资源大盘。\033[0m"
+echo -e "\n\033[1;32m🎉 极简双轨三体矩阵 V1.4 (终极中控版) 部署完毕！\033[0m"
+echo -e "\033[1;37m👉 请在终端输入 \033[1;33mst\033[1;37m 呼出天网大一统中控台！\033[0m"
