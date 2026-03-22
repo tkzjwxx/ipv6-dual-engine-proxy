@@ -1,11 +1,11 @@
 #!/bin/bash
 # ====================================================================
-# 极简双轨三体矩阵系统 V1.4 (终极中控台版 | jq动态注入 + 双轨物理隔离)
+# 极简双轨三体矩阵系统 V1.4.1 (中控 UI 进化版 | 内置部署向导)
 # 核心组件：WARP-GO + Sing-box(双轨6通道) + TCP轻量守护犬 + st中控台
 # ====================================================================
-echo -e "\033[1;36m🚀 正在执行【极简双轨三体矩阵系统 V1.4】绝对初始化...\033[0m"
+echo -e "\033[1;36m🚀 正在执行【极简双轨三体矩阵系统 V1.4.1】绝对初始化...\033[0m"
 
-# 1. 环境深度清理与底层依赖补全 (清理旧版 tw 和新版 st)
+# 1. 环境深度清理与底层依赖补全
 systemctl stop sing-box warp-go cloudflared warp-dog 2>/dev/null
 rm -rf /etc/s-box /usr/bin/c /usr/bin/v /usr/bin/w /usr/bin/r /usr/bin/u /usr/bin/a /usr/bin/w_dog /usr/bin/tw /usr/bin/st /usr/local/bin/sb_gen
 apt-get update -y >/dev/null 2>&1
@@ -58,7 +58,6 @@ chmod +x /etc/s-box/sing-box
 openssl ecparam -genkey -name prime256v1 -out /etc/s-box/hy2.key 2>/dev/null
 openssl req -new -x509 -days 365 -key /etc/s-box/hy2.key -out /etc/s-box/hy2.crt -subj "/CN=bing.com" 2>/dev/null
 
-# 写入状态机初始环境变量 (1=开启, 0=关闭)
 cat << 'EOF' > /etc/s-box/status.env
 HY2_V6=1
 VLESS_V6=1
@@ -68,7 +67,6 @@ VLESS_V4=1
 VMESS_V4=1
 EOF
 
-# 创造神级架构：jq 动态生成引擎 sb_gen
 cat << 'EOF' > /usr/local/bin/sb_gen
 #!/bin/bash
 source /etc/s-box/status.env
@@ -114,12 +112,11 @@ LimitNOFILE=512000
 WantedBy=multi-user.target
 EOF
 
-# 初始化生成一次 JSON 并启动
 /usr/local/bin/sb_gen
 systemctl daemon-reload && systemctl enable --now sing-box >/dev/null 2>&1
 
 # ====================================================================
-# 5. 核心进化：植入 WARP 纯IP无感守护犬 (TCP Probe)
+# 5. 核心进化：植入 WARP 纯IP无感守护犬
 # ====================================================================
 echo -e "\n\033[1;33m🐕 第三阶段：植入 WARP TCP 无感守护犬...\033[0m"
 cat << 'EOF' > /usr/bin/w_dog
@@ -153,7 +150,7 @@ EOF
 systemctl daemon-reload && systemctl enable --now warp-dog >/dev/null 2>&1
 
 # ====================================================================
-# 6. 缔造大一统中控台：st (System Terminal)
+# 6. 缔造大一统中控台：st (System Terminal) - 带 UI 部署向导
 # ====================================================================
 echo -e "\n\033[1;35m🌌 第四阶段：构建天网大一统中控台 (st)...\033[0m"
 cat << 'EOF' > /usr/bin/st
@@ -162,7 +159,7 @@ while true; do
     source /etc/s-box/status.env
     clear
     echo -e "\033[1;36m==================================================================\033[0m"
-    echo -e "\033[1;37m               🛡️ 极简双轨三体矩阵总控台 (V1.4)               \033[0m"
+    echo -e "\033[1;37m               🛡️ 极简双轨三体矩阵总控台 (V1.4.1)               \033[0m"
     echo -e "\033[1;36m==================================================================\033[0m"
     
     MEM=$(free -m | awk 'NR==2{printf "%.1f%%", $3*100/$2 }' 2>/dev/null || echo "未知")
@@ -195,7 +192,7 @@ while true; do
     echo -e "  [\033[1;36m6\033[0m] 切换 VMess  (Argo穿透 10004)    | 状态: $S6"
     echo -e "------------------------------------------------------------------"
     echo -e " \033[1;33m>>> ⚙️ 系统全局调度 <<<\033[0m"
-    echo -e "  [\033[1;36m7\033[0m] ☁️ 录入/更新 Argo 隧道 Token"
+    echo -e "  [\033[1;36m7\033[0m] ☁️ Argo 隧道自动化部署与映射向导"
     echo -e "  [\033[1;36m8\033[0m] 🔗 提取所有存活节点链接 (自动屏蔽休眠节点)"
     echo -e "  [\033[1;36m9\033[0m] 📜 追踪 Sing-box 实时底层日志"
     echo -e "  [\033[1;36m10\033[0m] ⚠️ 执行物理自毁程序 (删库跑路)"
@@ -211,19 +208,40 @@ while true; do
         5) [ "$VLESS_V4" = "1" ] && N=0 || N=1; sed -i "s/^VLESS_V4=.*/VLESS_V4=$N/" /etc/s-box/status.env; /usr/local/bin/sb_gen; echo -e "\033[1;32m✅ 状态切换完毕！\033[0m"; sleep 1 ;;
         6) [ "$VMESS_V4" = "1" ] && N=0 || N=1; sed -i "s/^VMESS_V4=.*/VMESS_V4=$N/" /etc/s-box/status.env; /usr/local/bin/sb_gen; echo -e "\033[1;32m✅ 状态切换完毕！\033[0m"; sleep 1 ;;
         7)
-            echo -e "\n\033[1;33m👉 请在 CF 网页端根据需要添加以下映射：\033[0m"
-            echo -e "   10001 (VLESS-V6), 10002 (VMess-V6), 10003 (VLESS-V4), 10004 (VMess-V4)"
-            read -p "🔑 请粘贴 CF 提供的完整指令或 Token: " RAW_INPUT
+            clear
+            echo -e "\033[1;36m==================================================================\033[0m"
+            echo -e "\033[1;32m               ☁️ Argo Tunnel 自动化部署与映射指南               \033[0m"
+            echo -e "\033[1;36m==================================================================\033[0m"
+            echo -e "\033[1;33m【部署前置操作】\033[0m"
+            echo -e " \033[1;37m1. 登录 Cloudflare Zero Trust 后台 -> Networks -> Tunnels\033[0m"
+            echo -e " \033[1;37m2. 点击 Create a tunnel，选择 Cloudflared，并随意命名\033[0m"
+            echo -e " \033[1;37m3. 复制网页给出的完整安装指令 (以 cloudflared service install 开头)\033[0m"
+            echo -e "\033[1;36m------------------------------------------------------------------\033[0m"
+            read -p "🔑 请在此粘贴完整指令或 Token 并回车: " RAW_INPUT
             ARGO_TOKEN=$(echo "$RAW_INPUT" | grep -oE 'eyJ[A-Za-z0-9_\-\.]+')
+            
             if [ -n "$ARGO_TOKEN" ]; then
-                echo -e "\033[1;35m⏳ 正在注册 Argo 系统服务...\033[0m"
+                echo -e "\n\033[1;35m⏳ 截获成功！正在静默拉取并注册 Argo 系统服务...\033[0m"
                 systemctl stop cloudflared 2>/dev/null; rm -f /usr/local/bin/cloudflared
                 curl -sL -o /usr/local/bin/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 && chmod +x /usr/local/bin/cloudflared
                 /usr/local/bin/cloudflared service install "$ARGO_TOKEN" >/dev/null 2>&1
-                systemctl enable --now cloudflared >/dev/null 2>&1; echo -e "\033[1;32m🎉 Argo 部署完毕！\033[0m"; sleep 2
+                systemctl enable --now cloudflared >/dev/null 2>&1
+                
+                echo -e "\n\033[1;32m🎉 部署大捷！Argo 守护进程已永久驻留！\033[0m"
+                echo -e "\033[1;36m------------------------------------------------------------------\033[0m"
+                echo -e "\033[1;33m⚠️ 【至关重要的最后一步：配置端口映射】\033[0m"
+                echo -e " \033[1;37m请立即回到 CF 网页，点击 Next 进入 Public Hostnames 页面，添加以下路由：\033[0m\n"
+                echo -e "  \033[1;35m[A轨通道 1]\033[0m 域名A -> Service: HTTP -> URL: \033[1;32mlocalhost:10001\033[0m (对应 VLESS 原生极速)"
+                echo -e "  \033[1;35m[A轨通道 2]\033[0m 域名B -> Service: HTTP -> URL: \033[1;32mlocalhost:10002\033[0m (对应 VMess 原生极速)"
+                echo -e "  \033[1;34m[B轨通道 3]\033[0m 域名C -> Service: HTTP -> URL: \033[1;32mlocalhost:10003\033[0m (对应 VLESS WARP兼容)"
+                echo -e "  \033[1;34m[B轨通道 4]\033[0m 域名D -> Service: HTTP -> URL: \033[1;32mlocalhost:10004\033[0m (对应 VMess WARP兼容)"
+                echo -e "\n \033[1;90m* 提示：不需要全部加满，想用哪个加哪个！配置完毕后按 8 即可提取专属节点！\033[0m"
+                echo -e "\033[1;36m==================================================================\033[0m"
             else
-                echo -e "\033[1;31m❌ 提取 Token 失败！\033[0m"; sleep 2
+                echo -e "\n\033[1;31m❌ 提取 Token 失败！未能检测到有效指令。\033[0m"
             fi
+            echo ""
+            read -n 1 -s -r -p "按任意键返回主菜单..."
             ;;
         8)
             IP=$(curl -s6 -m 5 api64.ipify.org 2>/dev/null || ip -6 addr show dev eth0 2>/dev/null | grep -oP '(?<=inet6\s)[0-9a-fA-F:]+' | head -n 1)
@@ -255,5 +273,5 @@ done
 EOF
 chmod +x /usr/bin/st
 
-echo -e "\n\033[1;32m🎉 极简双轨三体矩阵 V1.4 (终极中控版) 部署完毕！\033[0m"
+echo -e "\n\033[1;32m🎉 极简双轨三体矩阵 V1.4.1 (UI 进化版) 部署完毕！\033[0m"
 echo -e "\033[1;37m👉 请在终端输入 \033[1;33mst\033[1;37m 呼出天网大一统中控台！\033[0m"
