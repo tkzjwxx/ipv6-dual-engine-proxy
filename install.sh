@@ -1,9 +1,9 @@
 #!/bin/bash
 # ====================================================================
-# 极简双擎出站系统 V1.1 (纯 IPv6 机器专供 | Argo全自动 + 资源大盘版)
-# 核心组件：WARP-GO (IPv4出站) + Sing-box (HY2 直连 + VMess 隧道本地端)
+# 极简双擎出站系统 V1.2 (纯 IPv6 机器专供 | Argo全自动 + VLESS优选版)
+# 核心组件：WARP-GO (IPv4出站) + Sing-box (HY2 + VMess + VLESS)
 # ====================================================================
-echo -e "\033[1;36m🚀 正在执行【极简双擎出站系统 V1.1】初始化...\033[0m"
+echo -e "\033[1;36m🚀 正在执行【极简双擎出站系统 V1.2】初始化...\033[0m"
 
 # 1. 环境清理与依赖补全
 systemctl stop sing-box w_master warp-go cloudflared 2>/dev/null
@@ -67,14 +67,15 @@ cat << 'EOF' > /etc/s-box/sing-box.json
   },
   "inbounds": [
     { "type": "hysteria2", "tag": "hy2-in", "listen": "::", "listen_port": 8443, "users": [{"password": "PsiphonUS_2026"}], "tls": {"enabled": true, "server_name": "bing.com", "certificate_path": "/etc/s-box/hy2.crt", "key_path": "/etc/s-box/hy2.key"}, "sniff": true, "sniff_override_destination": true },
-    { "type": "vmess", "tag": "vmess-in", "listen": "127.0.0.1", "listen_port": 10001, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "alterId": 0}], "transport": {"type": "ws", "path": "/argo"}, "sniff": true, "sniff_override_destination": true }
+    { "type": "vmess", "tag": "vmess-in", "listen": "127.0.0.1", "listen_port": 10001, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "alterId": 0}], "transport": {"type": "ws", "path": "/argo"}, "sniff": true, "sniff_override_destination": true },
+    { "type": "vless", "tag": "vless-in", "listen": "127.0.0.1", "listen_port": 10002, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "flow": ""}], "transport": {"type": "ws", "path": "/vless"}, "sniff": true, "sniff_override_destination": true }
   ],
   "outbounds": [
     { "type": "direct", "tag": "direct-out" }
   ],
   "route": {
     "rules": [
-      { "inbound": ["hy2-in", "vmess-in"], "outbound": "direct-out" }
+      { "inbound": ["hy2-in", "vmess-in", "vless-in"], "outbound": "direct-out" }
     ]
   }
 }
@@ -104,7 +105,9 @@ clear
 echo -e "\033[1;36m=================================================================\033[0m"
 echo -e "\033[1;32m   ☁️  Argo 隧道全自动部署引擎 (Cloudflared)\033[0m"
 echo -e "\033[1;36m=================================================================\033[0m"
-echo -e "\033[1;33m👉 准备工作：请前往 Cloudflare 网页端创建 Tunnel，将流量指向 localhost:10001\033[0m"
+echo -e "\033[1;33m👉 准备工作：请前往 Cloudflare 网页端创建 Tunnel，添加两台主机映射：\033[0m"
+echo -e "\033[1;37m   1. 子域名A (给 VMess) -> Service: HTTP -> URL: localhost:10001\033[0m"
+echo -e "\033[1;37m   2. 子域名B (给 VLESS) -> Service: HTTP -> URL: localhost:10002\033[0m"
 echo -e "\033[1;37m(请从网页提供的安装命令中，提取出一长串以 eyJ 开头的 Token 字符)\033[0m"
 echo ""
 read -p "🔑 请在此粘贴你的 Token: " ARGO_TOKEN
@@ -133,7 +136,7 @@ else
 fi
 EOF
 
-# [v] 节点链接生成 (更新为提示自动安装)
+# [v] 节点链接生成 (新增 VLESS 优选)
 cat << 'EOF' > /usr/bin/v
 #!/bin/bash
 IP=$(curl -s6 -m 5 api64.ipify.org 2>/dev/null || curl -s6 -m 5 icanhazip.com 2>/dev/null || curl -s6 -m 5 ident.me 2>/dev/null)
@@ -144,15 +147,19 @@ UUID="d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a"
 PW="PsiphonUS_2026"
 clear
 echo -e "\033[1;36m=================================================================\033[0m"
-echo -e "\033[1;32m🎉 极简双擎系统 - 节点配置指引\033[0m"
+echo -e "\033[1;32m🎉 极简双擎系统 V1.2 - 节点配置指引\033[0m"
 echo -e "\033[1;36m=================================================================\033[0m"
 echo -e "\033[1;34m[当前 WARP 出站 IPv4]:\033[0m \033[1;37m${W_IP:-未连接}\033[0m\n"
 
 echo -e "\033[1;35m【一】直连 Hysteria2 节点 (IPv6 原生极速直通保底)\033[0m"
 echo -e "\033[40;32m hysteria2://$PW@[$IP]:8443/?sni=bing.com&insecure=1#Direct-HY2 \033[0m\n"
 
-echo -e "\033[1;35m【二】Argo 隧道 VMess 节点 (隐蔽防封出站)\033[0m"
-json="{\"v\":\"2\",\"ps\":\"Argo-VMess\",\"add\":\"你的专属CF子域名\",\"port\":\"443\",\"id\":\"$UUID\",\"aid\":\"0\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"你的专属CF子域名\",\"path\":\"/argo\",\"tls\":\"tls\"}"
+echo -e "\033[1;35m【二】Argo 隧道 VLESS 节点 (支持优选 IP/域名)\033[0m"
+echo -e "\033[40;32m vless://$UUID@icook.hk:443?encryption=none&security=tls&sni=专属CF域名B&type=ws&host=专属CF域名B&path=%2Fvless#Argo-VLESS-优选 \033[0m"
+echo -e "\033[1;90m * 节点默认接入 icook.hk 优选域名，你可以在客户端随时将其替换为其他的极品 IP\033[0m\n"
+
+echo -e "\033[1;35m【三】Argo 隧道 VMess 节点 (备用常规通道)\033[0m"
+json="{\"v\":\"2\",\"ps\":\"Argo-VMess-常规\",\"add\":\"专属CF域名A\",\"port\":\"443\",\"id\":\"$UUID\",\"aid\":\"0\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"专属CF域名A\",\"path\":\"/argo\",\"tls\":\"tls\"}"
 echo -e "\033[40;32m vmess://$(echo -n "$json" | base64 -w 0) \033[0m\n"
 
 echo -e "\033[1;33m💡 提示：如果你还没有启动 Argo 隧道守护进程，\033[0m"
@@ -160,15 +167,14 @@ echo -e "\033[1;33m👉 请在终端输入 \033[1;36ma\033[1;33m 唤出全自动
 echo -e "\033[1;36m=================================================================\033[0m"
 EOF
 
-# [c] 状态大盘 (增加系统物理探针与强迫症排版)
+# [c] 状态大盘
 cat << 'EOF' > /usr/bin/c
 #!/bin/bash
 clear
 echo -e "\033[1;36m==================================================================\033[0m"
-echo -e "\033[1;37m                   🛡️ 极简出站系统监控大盘 V1.1                   \033[0m"
+echo -e "\033[1;37m                   🛡️ 极简出站系统监控大盘 V1.2                   \033[0m"
 echo -e "\033[1;36m==================================================================\033[0m"
 
-# 宿主机资源物理探针 (防超售卡死)
 MEM=$(free -m | awk 'NR==2{printf "%.1f%%", $3*100/$2 }' 2>/dev/null || echo "未知")
 CPU=$(top -bn1 2>/dev/null | grep load | awk '{printf "%.2f", $(NF-2)}' || echo "未知")
 UPTIME=$(uptime -p 2>/dev/null | sed 's/up //')
@@ -177,15 +183,12 @@ echo "------------------------------------------------------------------"
 echo -e " 组件名称         | 运行状态   | 核心信息"
 echo "------------------------------------------------------------------"
 
-# Sing-box 探测
 if systemctl is-active --quiet sing-box; then S_C="\033[1;32m"; S_T="🟢运行中"; else S_C="\033[1;31m"; S_T="🔴已停止"; fi
-printf " %-14s | ${S_C}%-8s\033[0m | %s\n" "Sing-box 核心" "$S_T" "公网:8443(HY2) 局域:10001"
+printf " %-14s | ${S_C}%-8s\033[0m | %s\n" "Sing-box 核心" "$S_T" "公网:8443(HY2) 局域:10001(VM) 10002(VL)"
 
-# Cloudflared 探测
 if systemctl is-active --quiet cloudflared || pgrep -x "cloudflared" >/dev/null; then C_C="\033[1;32m"; C_T="🟢已连接"; else C_C="\033[1;33m"; C_T="🟡未运行"; fi
 printf " %-14s | ${C_C}%-8s\033[0m | %s\n" "Argo 隧道" "$C_T" "Cloudflare 内网穿透守护中"
 
-# WARP 探测 (增加严谨的超时处理)
 W_IP=$(curl -s4 -m 3 api.ipify.org 2>/dev/null | grep -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}" | head -n 1)
 if [ -n "$W_IP" ]; then W_C="\033[1;32m"; W_T="🟢畅通"; W_INFO="IPv4: $W_IP"; else W_C="\033[1;31m"; W_T="🔴断联"; W_INFO="等待路由握手或出口故障"; fi
 printf " %-14s | ${W_C}%-8s\033[0m | %s\n" "WARP 出口" "$W_T" "$W_INFO"
@@ -206,14 +209,13 @@ echo -e "\033[1;36m📜 正在跟踪 Sing-box 实时日志 (按 Ctrl+C 退出)..
 journalctl -u sing-box --no-pager --output cat -f -n 50
 EOF
 
-# [u] 自毁卸载 (增加针对 cloudflared 的物理级抹除)
+# [u] 自毁卸载
 cat << 'EOF' > /usr/bin/u
 #!/bin/bash
 clear; echo -e "\033[1;31m⚠️ 正在卸载核心组件...\033[0m"
 systemctl stop sing-box cloudflared warp-go 2>/dev/null
 systemctl disable sing-box cloudflared 2>/dev/null
 rm -rf /etc/s-box /usr/bin/c /usr/bin/v /usr/bin/w /usr/bin/r /usr/bin/u /usr/bin/a /etc/systemd/system/sing-box.service
-# 物理超度手动安装的 cloudflared
 rm -f /usr/local/bin/cloudflared /etc/systemd/system/cloudflared.service 2>/dev/null
 systemctl daemon-reload
 echo -e "\033[1;33m👉 正在唤出 WARP 菜单，请选择卸载 WARP\033[0m"
@@ -224,7 +226,7 @@ echo "🎉 物理超度完毕！机器已恢复纯净状态。"
 EOF
 
 chmod +x /usr/bin/v /usr/bin/c /usr/bin/w /usr/bin/r /usr/bin/u /usr/bin/a
-echo -e "\n\033[1;32m🎉 极简双擎系统 V1.1 部署完毕！\033[0m"
+echo -e "\n\033[1;32m🎉 极简双擎系统 V1.2 部署完毕！\033[0m"
 echo -e "\033[1;37m👉 录入隧道：输入 \033[1;36ma\033[1;37m 一键部署 Argo。\033[0m"
-echo -e "\033[1;37m👉 提取节点：输入 \033[1;36mv\033[1;37m 提取双端直连/代理节点。\033[0m"
+echo -e "\033[1;37m👉 提取节点：输入 \033[1;36mv\033[1;37m 提取 VLESS 优选 / VMess 节点。\033[0m"
 echo -e "\033[1;37m👉 监控系统：输入 \033[1;36mc\033[1;37m 查看状态与资源大盘。\033[0m"
