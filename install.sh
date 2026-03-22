@@ -1,9 +1,9 @@
 #!/bin/bash
 # ====================================================================
-# 极简双轨三体矩阵系统 V1.5 (自动注入域名 + 复制即用免修改版)
+# 极简双轨三体矩阵系统 V1.5.1 (修复 Sing-box 1.12+ 致命崩溃版)
 # 核心组件：WARP-GO + Sing-box(双轨6通道) + TCP守护犬 + st中控台
 # ====================================================================
-echo -e "\033[1;36m🚀 正在执行【极简双轨三体矩阵系统 V1.5】初始化...\033[0m"
+echo -e "\033[1;36m🚀 正在执行【极简双轨三体矩阵系统 V1.5.1】初始化...\033[0m"
 
 systemctl stop sing-box warp-go cloudflared warp-dog 2>/dev/null
 rm -rf /etc/s-box /usr/bin/c /usr/bin/v /usr/bin/w /usr/bin/r /usr/bin/u /usr/bin/a /usr/bin/w_dog /usr/bin/tw /usr/bin/st /usr/local/bin/sb_gen
@@ -48,6 +48,7 @@ DOMAIN_VLESS_V4=""
 DOMAIN_VMESS_V4=""
 EOF
 
+# 修复：将 domain_strategy 转移至 rules 中，符合 1.12.0 最新规范
 cat << 'EOF' > /usr/local/bin/sb_gen
 #!/bin/bash
 source /etc/s-box/status.env
@@ -64,15 +65,15 @@ V4_TAGS="[]"
 [ "$VMESS_V4" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "vmess", "tag": "vmess-v4-in", "listen": "127.0.0.1", "listen_port": 10004, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "alterId": 0}], "transport": {"type": "ws", "path": "/vmess-v4"}, "sniff": true, "sniff_override_destination": true}]') && V4_TAGS=$(echo "$V4_TAGS" | jq '. + ["vmess-v4-in"]')
 
 RULES="[]"
-[ "$(echo "$V6_TAGS" | jq 'length')" -gt 0 ] && RULES=$(echo "$RULES" | jq --argjson tags "$V6_TAGS" '. + [{"inbound": $tags, "outbound": "direct-v6"}]')
-[ "$(echo "$V4_TAGS" | jq 'length')" -gt 0 ] && RULES=$(echo "$RULES" | jq --argjson tags "$V4_TAGS" '. + [{"inbound": $tags, "outbound": "direct-v4"}]')
+[ "$(echo "$V6_TAGS" | jq 'length')" -gt 0 ] && RULES=$(echo "$RULES" | jq --argjson tags "$V6_TAGS" '. + [{"inbound": $tags, "domain_strategy": "ipv6_only", "outbound": "direct-v6"}]')
+[ "$(echo "$V4_TAGS" | jq 'length')" -gt 0 ] && RULES=$(echo "$RULES" | jq --argjson tags "$V4_TAGS" '. + [{"inbound": $tags, "domain_strategy": "ipv4_only", "outbound": "direct-v4"}]')
 
 jq -n --argjson inbounds "$INBOUNDS" --argjson rules "$RULES" '{
     log: {level: "fatal"},
     inbounds: $inbounds,
     outbounds: [
-      {type: "direct", tag: "direct-v6", domain_strategy: "ipv6_only"},
-      {type: "direct", tag: "direct-v4", domain_strategy: "ipv4_only"}
+      {type: "direct", tag: "direct-v6"},
+      {type: "direct", tag: "direct-v4"}
     ],
     route: {rules: $rules}
 }' > /etc/s-box/sing-box.json
@@ -81,11 +82,13 @@ systemctl restart sing-box >/dev/null 2>&1
 EOF
 chmod +x /usr/local/bin/sb_gen
 
+# 修复：注入官方后门环境变量，根治崩溃
 cat > /etc/systemd/system/sing-box.service << 'EOF'
 [Unit]
 Description=Sing-box Dynamic Core
 After=network.target
 [Service]
+Environment="ENABLE_DEPRECATED_LEGACY_DOMAIN_STRATEGY_OPTIONS=true"
 ExecStart=/etc/s-box/sing-box run -c /etc/s-box/sing-box.json
 Restart=always
 LimitNOFILE=512000
@@ -134,7 +137,7 @@ while true; do
     source /etc/s-box/status.env
     clear
     echo -e "\033[1;36m==================================================================\033[0m"
-    echo -e "\033[1;37m             🛡️ 极简双轨三体矩阵总控台 (V1.5 免改版)             \033[0m"
+    echo -e "\033[1;37m           🛡️ 极简双轨三体矩阵总控台 (V1.5.1 防崩溃版)           \033[0m"
     echo -e "\033[1;36m==================================================================\033[0m"
     
     MEM=$(free -m | awk 'NR==2{printf "%.1f%%", $3*100/$2 }' 2>/dev/null || echo "未知")
@@ -229,12 +232,10 @@ while true; do
             read -n 1 -s -r -p "按任意键返回主菜单..."
             ;;
         8)
-            # 硬核物理 IPv6 探针，无视 API 故障
             IP=$(curl -s6 -m 3 api64.ipify.org 2>/dev/null || ip -6 addr show | grep inet6 | awk '{print $2}' | cut -d/ -f1 | grep -v '^::1' | grep -v '^fe80' | head -n 1)
             [ -z "$IP" ] && IP="获取原生IPv6失败_请检查网卡"
             UUID="d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a"; PW="PsiphonUS_2026"
             
-            # 读取录入的域名，若为空则给出友好的占位符
             D_V1=${DOMAIN_VLESS_V6:-"未配置域名请在此替换"}
             D_M1=${DOMAIN_VMESS_V6:-"未配置域名请在此替换"}
             D_V2=${DOMAIN_VLESS_V4:-"未配置域名请在此替换"}
@@ -274,5 +275,5 @@ done
 EOF
 chmod +x /usr/bin/st
 
-echo -e "\n\033[1;32m🎉 极简双轨三体矩阵 V1.5 (自动注入版) 部署完毕！\033[0m"
+echo -e "\n\033[1;32m🎉 极简双轨三体矩阵 V1.5.1 (修复崩溃版) 部署完毕！\033[0m"
 echo -e "\033[1;37m👉 请在终端输入 \033[1;33mst\033[1;37m 呼出天网大一统中控台！\033[0m"
