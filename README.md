@@ -30,7 +30,7 @@ Version 1.4 introduces the **"Dual-Track Tri-Body"** architecture. It splits tra
 Run the following chained command in your terminal as `root`:
 
 ```bash
-echo -e "nameserver 2606:4700:4700::1111\nnameserver 2001:4860:4860::8888" > /etc/resolv.conf; sed -i '/virtuozzo/d' /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null; apt-get update -y; apt-get install -y curl; bash <(curl -sSL [https://cdn.jsdelivr.net/gh/你的GitHub用户名/你的仓库名@main/install.sh](https://cdn.jsdelivr.net/gh/你的GitHub用户名/你的仓库名@main/install.sh))
+echo -e "nameserver 2606:4700:4700::1111\nnameserver 2001:4860:4860::8888" > /etc/resolv.conf; sed -i '/virtuozzo/d' /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null; apt-get update -y; apt-get install -y curl; bash <(curl -sSL https://cdn.jsdelivr.net/gh/tkzjwxx/ipv6-dual-engine-proxy@main/install.sh)
 ```
 *(⚠️ Note: During installation, the WARP menu will pop up. Follow the prompts to get an IPv4 address, then type `0` to exit the menu and let the Matrix deployment finish automatically!)*
 
@@ -62,4 +62,4 @@ V1.4 版本迎来了史诗级的**“双轨三体矩阵”**重构！系统在�
 请使用 `root` 用户在终端执行以下链式命令（自带极其严苛的环境清理与 DNS 修复）：
 
 ```bash
-echo -e "nameserver 2606:4700:4700::1111\nnameserver 2001:4860:4860::8888" > /etc/resolv.conf; sed -
+echo -e "nameserver 2606:4700:4700::1111\nnameserver 2001:4860:4860::8888" > /etc/resolv.conf; sed -i '/virtuozzo/d' /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null; apt-get update -y; apt-get install -y curl; bash <(curl -sSL https://cdn.jsdelivr.net/gh/tkzjwxx/ipv6-dual-engine-proxy@main/install.sh)
