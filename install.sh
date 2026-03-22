@@ -1,9 +1,9 @@
 #!/bin/bash
 # ====================================================================
-# 极简双轨三体矩阵系统 V1.5.3 (100% 适配 Sing-box 1.12+ 新架构)
+# 极简双轨三体矩阵系统 V1.5.4 (关闭嗅探 | 专治 LXC 残血小鸡崩溃版)
 # 核心组件：WARP-GO + Sing-box(双轨6通道) + TCP守护犬 + st中控台
 # ====================================================================
-echo -e "\033[1;36m🚀 正在执行【极简双轨三体矩阵系统 V1.5.3】初始化...\033[0m"
+echo -e "\033[1;36m🚀 正在执行【极简双轨三体矩阵系统 V1.5.4】初始化...\033[0m"
 
 systemctl stop sing-box warp-go cloudflared warp-dog 2>/dev/null
 rm -rf /etc/s-box /usr/bin/c /usr/bin/v /usr/bin/w /usr/bin/r /usr/bin/u /usr/bin/a /usr/bin/w_dog /usr/bin/tw /usr/bin/st /usr/local/bin/sb_gen
@@ -48,7 +48,7 @@ DOMAIN_VMESS_V4=""
 EOF
 
 # ====================================================================
-# 史诗级修复：完全采用 1.12.0 最新 DNS 服务器格式与 domain_resolver 机制
+# 终极修复：注入 auto_detect_interface: false，彻底根治 LXC/OpenVZ 报错
 # ====================================================================
 cat << 'EOF' > /usr/local/bin/sb_gen
 #!/bin/bash
@@ -87,7 +87,10 @@ jq -n --argjson inbounds "$INBOUNDS" --argjson rules "$RULES" --argjson dns_rule
       {type: "direct", tag: "direct-v6", domain_resolver: {server: "dns-v6", strategy: "ipv6_only"}},
       {type: "direct", tag: "direct-v4", domain_resolver: {server: "dns-v4", strategy: "ipv4_only"}}
     ],
-    route: {rules: $rules}
+    route: {
+        rules: $rules,
+        auto_detect_interface: false
+    }
 }' > /etc/s-box/sing-box.json
 
 systemctl restart sing-box >/dev/null 2>&1
@@ -147,7 +150,7 @@ while true; do
     source /etc/s-box/status.env
     clear
     echo -e "\033[1;36m==================================================================\033[0m"
-    echo -e "\033[1;37m           🛡️ 极简双轨三体矩阵总控台 (V1.5.3 终极重构版)          \033[0m"
+    echo -e "\033[1;37m           🛡️ 极简双轨三体矩阵总控台 (V1.5.4 终极纯净版)          \033[0m"
     echo -e "\033[1;36m==================================================================\033[0m"
     
     MEM=$(free -m | awk 'NR==2{printf "%.1f%%", $3*100/$2 }' 2>/dev/null || echo "未知")
@@ -285,5 +288,5 @@ done
 EOF
 chmod +x /usr/bin/st
 
-echo -e "\n\033[1;32m🎉 极简双轨三体矩阵 V1.5.3 (最终重构版) 部署完毕！\033[0m"
+echo -e "\n\033[1;32m🎉 极简双轨三体矩阵 V1.5.4 (终极护航版) 部署完毕！\033[0m"
 echo -e "\033[1;37m👉 请在终端输入 \033[1;33mst\033[1;37m 呼出天网大一统中控台！\033[0m"
