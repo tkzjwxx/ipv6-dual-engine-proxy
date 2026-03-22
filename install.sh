@@ -1,9 +1,9 @@
 #!/bin/bash
 # ====================================================================
-# 极简双轨三体矩阵系统 V1.5.1 (修复 Sing-box 1.12+ 致命崩溃版)
+# 极简双轨三体矩阵系统 V1.5.2 (Sing-box 1.12+ 纯净 DNS 路由重构版)
 # 核心组件：WARP-GO + Sing-box(双轨6通道) + TCP守护犬 + st中控台
 # ====================================================================
-echo -e "\033[1;36m🚀 正在执行【极简双轨三体矩阵系统 V1.5.1】初始化...\033[0m"
+echo -e "\033[1;36m🚀 正在执行【极简双轨三体矩阵系统 V1.5.2】初始化...\033[0m"
 
 systemctl stop sing-box warp-go cloudflared warp-dog 2>/dev/null
 rm -rf /etc/s-box /usr/bin/c /usr/bin/v /usr/bin/w /usr/bin/r /usr/bin/u /usr/bin/a /usr/bin/w_dog /usr/bin/tw /usr/bin/st /usr/local/bin/sb_gen
@@ -34,7 +34,6 @@ chmod +x /etc/s-box/sing-box
 openssl ecparam -genkey -name prime256v1 -out /etc/s-box/hy2.key 2>/dev/null
 openssl req -new -x509 -days 365 -key /etc/s-box/hy2.key -out /etc/s-box/hy2.crt -subj "/CN=bing.com" 2>/dev/null
 
-# 状态机：加入域名存储字段
 cat << 'EOF' > /etc/s-box/status.env
 HY2_V6=1
 VLESS_V6=1
@@ -48,7 +47,9 @@ DOMAIN_VLESS_V4=""
 DOMAIN_VMESS_V4=""
 EOF
 
-# 修复：将 domain_strategy 转移至 rules 中，符合 1.12.0 最新规范
+# ====================================================================
+# 神级重构：采用 DNS 级流量隔离策略，完美符合 1.12+ 架构
+# ====================================================================
 cat << 'EOF' > /usr/local/bin/sb_gen
 #!/bin/bash
 source /etc/s-box/status.env
@@ -64,12 +65,24 @@ V4_TAGS="[]"
 [ "$VLESS_V4" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "vless", "tag": "vless-v4-in", "listen": "127.0.0.1", "listen_port": 10003, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "flow": ""}], "transport": {"type": "ws", "path": "/vless-v4"}, "sniff": true, "sniff_override_destination": true}]') && V4_TAGS=$(echo "$V4_TAGS" | jq '. + ["vless-v4-in"]')
 [ "$VMESS_V4" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "vmess", "tag": "vmess-v4-in", "listen": "127.0.0.1", "listen_port": 10004, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "alterId": 0}], "transport": {"type": "ws", "path": "/vmess-v4"}, "sniff": true, "sniff_override_destination": true}]') && V4_TAGS=$(echo "$V4_TAGS" | jq '. + ["vmess-v4-in"]')
 
-RULES="[]"
-[ "$(echo "$V6_TAGS" | jq 'length')" -gt 0 ] && RULES=$(echo "$RULES" | jq --argjson tags "$V6_TAGS" '. + [{"inbound": $tags, "domain_strategy": "ipv6_only", "outbound": "direct-v6"}]')
-[ "$(echo "$V4_TAGS" | jq 'length')" -gt 0 ] && RULES=$(echo "$RULES" | jq --argjson tags "$V4_TAGS" '. + [{"inbound": $tags, "domain_strategy": "ipv4_only", "outbound": "direct-v4"}]')
+DNS_RULES="[]"
+[ "$(echo "$V6_TAGS" | jq 'length')" -gt 0 ] && DNS_RULES=$(echo "$DNS_RULES" | jq --argjson tags "$V6_TAGS" '. + [{"inbound": $tags, "server": "dns-v6"}]')
+[ "$(echo "$V4_TAGS" | jq 'length')" -gt 0 ] && DNS_RULES=$(echo "$DNS_RULES" | jq --argjson tags "$V4_TAGS" '. + [{"inbound": $tags, "server": "dns-v4"}]')
 
-jq -n --argjson inbounds "$INBOUNDS" --argjson rules "$RULES" '{
-    log: {level: "fatal"},
+RULES="[]"
+[ "$(echo "$V6_TAGS" | jq 'length')" -gt 0 ] && RULES=$(echo "$RULES" | jq --argjson tags "$V6_TAGS" '. + [{"inbound": $tags, "outbound": "direct-v6"}]')
+[ "$(echo "$V4_TAGS" | jq 'length')" -gt 0 ] && RULES=$(echo "$RULES" | jq --argjson tags "$V4_TAGS" '. + [{"inbound": $tags, "outbound": "direct-v4"}]')
+
+jq -n --argjson inbounds "$INBOUNDS" --argjson rules "$RULES" --argjson dns_rules "$DNS_RULES" '{
+    log: {level: "error"},
+    dns: {
+        servers: [
+            {tag: "dns-v6", address: "2606:4700:4700::1111", strategy: "ipv6_only"},
+            {tag: "dns-v4", address: "1.1.1.1", strategy: "ipv4_only"}
+        ],
+        rules: $dns_rules,
+        independent_cache: true
+    },
     inbounds: $inbounds,
     outbounds: [
       {type: "direct", tag: "direct-v6"},
@@ -82,13 +95,11 @@ systemctl restart sing-box >/dev/null 2>&1
 EOF
 chmod +x /usr/local/bin/sb_gen
 
-# 修复：注入官方后门环境变量，根治崩溃
 cat > /etc/systemd/system/sing-box.service << 'EOF'
 [Unit]
 Description=Sing-box Dynamic Core
 After=network.target
 [Service]
-Environment="ENABLE_DEPRECATED_LEGACY_DOMAIN_STRATEGY_OPTIONS=true"
 ExecStart=/etc/s-box/sing-box run -c /etc/s-box/sing-box.json
 Restart=always
 LimitNOFILE=512000
@@ -137,7 +148,7 @@ while true; do
     source /etc/s-box/status.env
     clear
     echo -e "\033[1;36m==================================================================\033[0m"
-    echo -e "\033[1;37m           🛡️ 极简双轨三体矩阵总控台 (V1.5.1 防崩溃版)           \033[0m"
+    echo -e "\033[1;37m           🛡️ 极简双轨三体矩阵总控台 (V1.5.2 DNS重构版)           \033[0m"
     echo -e "\033[1;36m==================================================================\033[0m"
     
     MEM=$(free -m | awk 'NR==2{printf "%.1f%%", $3*100/$2 }' 2>/dev/null || echo "未知")
@@ -208,7 +219,7 @@ while true; do
             
             echo -e "\033[1;33m【第二步：录入专属域名 (实现节点复制即用)】\033[0m"
             echo -e " \033[1;37m请确保你已经在 CF 网页端将这些域名按如下规则映射到了本地端口：\033[0m"
-            echo -e " \033[1;90m(注意：映射 URL 必须填写 \033[1;32m127.0.0.1\033[1;90m 而非 localhost，防止纯V6小鸡解析失败)\033[0m"
+            echo -e " \033[1;90m(注意：映射 URL 必须填写 \033[1;32m127.0.0.1\033[1;90m 而非 localhost)\033[0m"
             echo -e "  * 映射到 \033[1;32m127.0.0.1:10001\033[0m (对应 A轨 VLESS 原生极速)"
             echo -e "  * 映射到 \033[1;32m127.0.0.1:10002\033[0m (对应 A轨 VMess 原生极速)"
             echo -e "  * 映射到 \033[1;32m127.0.0.1:10003\033[0m (对应 B轨 VLESS WARP兼容)"
@@ -275,5 +286,5 @@ done
 EOF
 chmod +x /usr/bin/st
 
-echo -e "\n\033[1;32m🎉 极简双轨三体矩阵 V1.5.1 (修复崩溃版) 部署完毕！\033[0m"
+echo -e "\n\033[1;32m🎉 极简双轨三体矩阵 V1.5.2 (DNS路由重构版) 部署完毕！\033[0m"
 echo -e "\033[1;37m👉 请在终端输入 \033[1;33mst\033[1;37m 呼出天网大一统中控台！\033[0m"
