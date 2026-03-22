@@ -1,9 +1,9 @@
 #!/bin/bash
 # ====================================================================
-# 极简双轨三体矩阵系统 V1.5.4 (关闭嗅探 | 专治 LXC 残血小鸡崩溃版)
+# 极简双轨三体矩阵系统 V1.5.5 (注入免死金牌 | 绝对防崩溃万能版)
 # 核心组件：WARP-GO + Sing-box(双轨6通道) + TCP守护犬 + st中控台
 # ====================================================================
-echo -e "\033[1;36m🚀 正在执行【极简双轨三体矩阵系统 V1.5.4】初始化...\033[0m"
+echo -e "\033[1;36m🚀 正在执行【极简双轨三体矩阵系统 V1.5.5】初始化...\033[0m"
 
 systemctl stop sing-box warp-go cloudflared warp-dog 2>/dev/null
 rm -rf /etc/s-box /usr/bin/c /usr/bin/v /usr/bin/w /usr/bin/r /usr/bin/u /usr/bin/a /usr/bin/w_dog /usr/bin/tw /usr/bin/st /usr/local/bin/sb_gen
@@ -48,7 +48,7 @@ DOMAIN_VMESS_V4=""
 EOF
 
 # ====================================================================
-# 终极修复：注入 auto_detect_interface: false，彻底根治 LXC/OpenVZ 报错
+# 回归最稳定架构：依赖双轨策略，丢弃激进语法
 # ====================================================================
 cat << 'EOF' > /usr/local/bin/sb_gen
 #!/bin/bash
@@ -65,27 +65,16 @@ V4_TAGS="[]"
 [ "$VLESS_V4" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "vless", "tag": "vless-v4-in", "listen": "127.0.0.1", "listen_port": 10003, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "flow": ""}], "transport": {"type": "ws", "path": "/vless-v4"}, "sniff": true, "sniff_override_destination": true}]') && V4_TAGS=$(echo "$V4_TAGS" | jq '. + ["vless-v4-in"]')
 [ "$VMESS_V4" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "vmess", "tag": "vmess-v4-in", "listen": "127.0.0.1", "listen_port": 10004, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "alterId": 0}], "transport": {"type": "ws", "path": "/vmess-v4"}, "sniff": true, "sniff_override_destination": true}]') && V4_TAGS=$(echo "$V4_TAGS" | jq '. + ["vmess-v4-in"]')
 
-DNS_RULES="[]"
-[ "$(echo "$V6_TAGS" | jq 'length')" -gt 0 ] && DNS_RULES=$(echo "$DNS_RULES" | jq --argjson tags "$V6_TAGS" '. + [{"inbound": $tags, "server": "dns-v6"}]')
-[ "$(echo "$V4_TAGS" | jq 'length')" -gt 0 ] && DNS_RULES=$(echo "$DNS_RULES" | jq --argjson tags "$V4_TAGS" '. + [{"inbound": $tags, "server": "dns-v4"}]')
-
 RULES="[]"
 [ "$(echo "$V6_TAGS" | jq 'length')" -gt 0 ] && RULES=$(echo "$RULES" | jq --argjson tags "$V6_TAGS" '. + [{"inbound": $tags, "outbound": "direct-v6"}]')
 [ "$(echo "$V4_TAGS" | jq 'length')" -gt 0 ] && RULES=$(echo "$RULES" | jq --argjson tags "$V4_TAGS" '. + [{"inbound": $tags, "outbound": "direct-v4"}]')
 
-jq -n --argjson inbounds "$INBOUNDS" --argjson rules "$RULES" --argjson dns_rules "$DNS_RULES" '{
+jq -n --argjson inbounds "$INBOUNDS" --argjson rules "$RULES" '{
     log: {level: "error"},
-    dns: {
-        servers: [
-            {tag: "dns-v6", type: "udp", server: "2606:4700:4700::1111"},
-            {tag: "dns-v4", type: "udp", server: "1.1.1.1"}
-        ],
-        independent_cache: true
-    },
     inbounds: $inbounds,
     outbounds: [
-      {type: "direct", tag: "direct-v6", domain_resolver: {server: "dns-v6", strategy: "ipv6_only"}},
-      {type: "direct", tag: "direct-v4", domain_resolver: {server: "dns-v4", strategy: "ipv4_only"}}
+      {type: "direct", tag: "direct-v6", domain_strategy: "ipv6_only"},
+      {type: "direct", tag: "direct-v4", domain_strategy: "ipv4_only"}
     ],
     route: {
         rules: $rules,
@@ -97,11 +86,16 @@ systemctl restart sing-box >/dev/null 2>&1
 EOF
 chmod +x /usr/local/bin/sb_gen
 
+# ====================================================================
+# 终极护航：两道官方特赦金牌，强行接管内核配置
+# ====================================================================
 cat > /etc/systemd/system/sing-box.service << 'EOF'
 [Unit]
 Description=Sing-box Dynamic Core
 After=network.target
 [Service]
+Environment="ENABLE_DEPRECATED_LEGACY_DOMAIN_STRATEGY_OPTIONS=true"
+Environment="ENABLE_DEPRECATED_LEGACY_DNS_SERVERS=true"
 ExecStart=/etc/s-box/sing-box run -c /etc/s-box/sing-box.json
 Restart=always
 LimitNOFILE=512000
@@ -150,7 +144,7 @@ while true; do
     source /etc/s-box/status.env
     clear
     echo -e "\033[1;36m==================================================================\033[0m"
-    echo -e "\033[1;37m           🛡️ 极简双轨三体矩阵总控台 (V1.5.4 终极纯净版)          \033[0m"
+    echo -e "\033[1;37m           🛡️ 极简双轨三体矩阵总控台 (V1.5.5 万能兼容版)          \033[0m"
     echo -e "\033[1;36m==================================================================\033[0m"
     
     MEM=$(free -m | awk 'NR==2{printf "%.1f%%", $3*100/$2 }' 2>/dev/null || echo "未知")
@@ -288,5 +282,5 @@ done
 EOF
 chmod +x /usr/bin/st
 
-echo -e "\n\033[1;32m🎉 极简双轨三体矩阵 V1.5.4 (终极护航版) 部署完毕！\033[0m"
+echo -e "\n\033[1;32m🎉 极简双轨三体矩阵 V1.5.5 (万能兼容版) 部署完毕！\033[0m"
 echo -e "\033[1;37m👉 请在终端输入 \033[1;33mst\033[1;37m 呼出天网大一统中控台！\033[0m"
