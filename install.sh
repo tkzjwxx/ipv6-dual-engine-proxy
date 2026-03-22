@@ -1,9 +1,9 @@
 #!/bin/bash
 # ====================================================================
-# 极简双轨三体矩阵系统 V1.5.5 (注入免死金牌 | 绝对防崩溃万能版)
+# 极简双轨三体矩阵系统 V1.5.6 (终极物理破壁版 | 专治 LXC 残血小鸡)
 # 核心组件：WARP-GO + Sing-box(双轨6通道) + TCP守护犬 + st中控台
 # ====================================================================
-echo -e "\033[1;36m🚀 正在执行【极简双轨三体矩阵系统 V1.5.5】初始化...\033[0m"
+echo -e "\033[1;36m🚀 正在执行【极简双轨三体矩阵系统 V1.5.6】初始化...\033[0m"
 
 systemctl stop sing-box warp-go cloudflared warp-dog 2>/dev/null
 rm -rf /etc/s-box /usr/bin/c /usr/bin/v /usr/bin/w /usr/bin/r /usr/bin/u /usr/bin/a /usr/bin/w_dog /usr/bin/tw /usr/bin/st /usr/local/bin/sb_gen
@@ -48,7 +48,7 @@ DOMAIN_VMESS_V4=""
 EOF
 
 # ====================================================================
-# 回归最稳定架构：依赖双轨策略，丢弃激进语法
+# 终极净化：抹除 sniff 嗅探，监听泛化 ::，启用 1.12+ 最新语法
 # ====================================================================
 cat << 'EOF' > /usr/local/bin/sb_gen
 #!/bin/bash
@@ -57,13 +57,13 @@ INBOUNDS="[]"
 V6_TAGS="[]"
 V4_TAGS="[]"
 
-[ "$HY2_V6" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "hysteria2", "tag": "hy2-v6-in", "listen": "::", "listen_port": 8443, "users": [{"password": "PsiphonUS_2026"}], "tls": {"enabled": true, "server_name": "bing.com", "certificate_path": "/etc/s-box/hy2.crt", "key_path": "/etc/s-box/hy2.key"}, "sniff": true, "sniff_override_destination": true}]') && V6_TAGS=$(echo "$V6_TAGS" | jq '. + ["hy2-v6-in"]')
-[ "$VLESS_V6" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "vless", "tag": "vless-v6-in", "listen": "127.0.0.1", "listen_port": 10001, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "flow": ""}], "transport": {"type": "ws", "path": "/vless-v6"}, "sniff": true, "sniff_override_destination": true}]') && V6_TAGS=$(echo "$V6_TAGS" | jq '. + ["vless-v6-in"]')
-[ "$VMESS_V6" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "vmess", "tag": "vmess-v6-in", "listen": "127.0.0.1", "listen_port": 10002, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "alterId": 0}], "transport": {"type": "ws", "path": "/vmess-v6"}, "sniff": true, "sniff_override_destination": true}]') && V6_TAGS=$(echo "$V6_TAGS" | jq '. + ["vmess-v6-in"]')
+[ "$HY2_V6" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "hysteria2", "tag": "hy2-v6-in", "listen": "::", "listen_port": 8443, "users": [{"password": "PsiphonUS_2026"}], "tls": {"enabled": true, "server_name": "bing.com", "certificate_path": "/etc/s-box/hy2.crt", "key_path": "/etc/s-box/hy2.key"}}]') && V6_TAGS=$(echo "$V6_TAGS" | jq '. + ["hy2-v6-in"]')
+[ "$VLESS_V6" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "vless", "tag": "vless-v6-in", "listen": "::", "listen_port": 10001, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "flow": ""}], "transport": {"type": "ws", "path": "/vless-v6"}}]') && V6_TAGS=$(echo "$V6_TAGS" | jq '. + ["vless-v6-in"]')
+[ "$VMESS_V6" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "vmess", "tag": "vmess-v6-in", "listen": "::", "listen_port": 10002, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "alterId": 0}], "transport": {"type": "ws", "path": "/vmess-v6"}}]') && V6_TAGS=$(echo "$V6_TAGS" | jq '. + ["vmess-v6-in"]')
 
-[ "$HY2_V4" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "hysteria2", "tag": "hy2-v4-in", "listen": "::", "listen_port": 8444, "users": [{"password": "PsiphonUS_2026"}], "tls": {"enabled": true, "server_name": "bing.com", "certificate_path": "/etc/s-box/hy2.crt", "key_path": "/etc/s-box/hy2.key"}, "sniff": true, "sniff_override_destination": true}]') && V4_TAGS=$(echo "$V4_TAGS" | jq '. + ["hy2-v4-in"]')
-[ "$VLESS_V4" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "vless", "tag": "vless-v4-in", "listen": "127.0.0.1", "listen_port": 10003, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "flow": ""}], "transport": {"type": "ws", "path": "/vless-v4"}, "sniff": true, "sniff_override_destination": true}]') && V4_TAGS=$(echo "$V4_TAGS" | jq '. + ["vless-v4-in"]')
-[ "$VMESS_V4" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "vmess", "tag": "vmess-v4-in", "listen": "127.0.0.1", "listen_port": 10004, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "alterId": 0}], "transport": {"type": "ws", "path": "/vmess-v4"}, "sniff": true, "sniff_override_destination": true}]') && V4_TAGS=$(echo "$V4_TAGS" | jq '. + ["vmess-v4-in"]')
+[ "$HY2_V4" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "hysteria2", "tag": "hy2-v4-in", "listen": "::", "listen_port": 8444, "users": [{"password": "PsiphonUS_2026"}], "tls": {"enabled": true, "server_name": "bing.com", "certificate_path": "/etc/s-box/hy2.crt", "key_path": "/etc/s-box/hy2.key"}}]') && V4_TAGS=$(echo "$V4_TAGS" | jq '. + ["hy2-v4-in"]')
+[ "$VLESS_V4" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "vless", "tag": "vless-v4-in", "listen": "::", "listen_port": 10003, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "flow": ""}], "transport": {"type": "ws", "path": "/vless-v4"}}]') && V4_TAGS=$(echo "$V4_TAGS" | jq '. + ["vless-v4-in"]')
+[ "$VMESS_V4" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "vmess", "tag": "vmess-v4-in", "listen": "::", "listen_port": 10004, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "alterId": 0}], "transport": {"type": "ws", "path": "/vmess-v4"}}]') && V4_TAGS=$(echo "$V4_TAGS" | jq '. + ["vmess-v4-in"]')
 
 RULES="[]"
 [ "$(echo "$V6_TAGS" | jq 'length')" -gt 0 ] && RULES=$(echo "$RULES" | jq --argjson tags "$V6_TAGS" '. + [{"inbound": $tags, "outbound": "direct-v6"}]')
@@ -73,8 +73,8 @@ jq -n --argjson inbounds "$INBOUNDS" --argjson rules "$RULES" '{
     log: {level: "error"},
     inbounds: $inbounds,
     outbounds: [
-      {type: "direct", tag: "direct-v6", domain_strategy: "ipv6_only"},
-      {type: "direct", tag: "direct-v4", domain_strategy: "ipv4_only"}
+      {type: "direct", tag: "direct-v6", domain_resolver: {strategy: "ipv6_only"}},
+      {type: "direct", tag: "direct-v4", domain_resolver: {strategy: "ipv4_only"}}
     ],
     route: {
         rules: $rules,
@@ -86,16 +86,11 @@ systemctl restart sing-box >/dev/null 2>&1
 EOF
 chmod +x /usr/local/bin/sb_gen
 
-# ====================================================================
-# 终极护航：两道官方特赦金牌，强行接管内核配置
-# ====================================================================
 cat > /etc/systemd/system/sing-box.service << 'EOF'
 [Unit]
 Description=Sing-box Dynamic Core
 After=network.target
 [Service]
-Environment="ENABLE_DEPRECATED_LEGACY_DOMAIN_STRATEGY_OPTIONS=true"
-Environment="ENABLE_DEPRECATED_LEGACY_DNS_SERVERS=true"
 ExecStart=/etc/s-box/sing-box run -c /etc/s-box/sing-box.json
 Restart=always
 LimitNOFILE=512000
@@ -144,7 +139,7 @@ while true; do
     source /etc/s-box/status.env
     clear
     echo -e "\033[1;36m==================================================================\033[0m"
-    echo -e "\033[1;37m           🛡️ 极简双轨三体矩阵总控台 (V1.5.5 万能兼容版)          \033[0m"
+    echo -e "\033[1;37m           🛡️ 极简双轨三体矩阵总控台 (V1.5.6 物理破壁版)          \033[0m"
     echo -e "\033[1;36m==================================================================\033[0m"
     
     MEM=$(free -m | awk 'NR==2{printf "%.1f%%", $3*100/$2 }' 2>/dev/null || echo "未知")
@@ -215,11 +210,11 @@ while true; do
             
             echo -e "\033[1;33m【第二步：录入专属域名 (实现节点复制即用)】\033[0m"
             echo -e " \033[1;37m请确保你已经在 CF 网页端将这些域名按如下规则映射到了本地端口：\033[0m"
-            echo -e " \033[1;90m(注意：映射 URL 必须填写 \033[1;32m127.0.0.1\033[1;90m 而非 localhost)\033[0m"
-            echo -e "  * 映射到 \033[1;32m127.0.0.1:10001\033[0m (对应 A轨 VLESS 原生极速)"
-            echo -e "  * 映射到 \033[1;32m127.0.0.1:10002\033[0m (对应 A轨 VMess 原生极速)"
-            echo -e "  * 映射到 \033[1;32m127.0.0.1:10003\033[0m (对应 B轨 VLESS WARP兼容)"
-            echo -e "  * 映射到 \033[1;32m127.0.0.1:10004\033[0m (对应 B轨 VMess WARP兼容)"
+            echo -e " \033[1;90m(提示：映射 URL 填写 \033[1;32mlocalhost:端口号\033[1;90m 即可自动兼容纯V6环境)\033[0m"
+            echo -e "  * 映射到 \033[1;32mlocalhost:10001\033[0m (对应 A轨 VLESS 原生极速)"
+            echo -e "  * 映射到 \033[1;32mlocalhost:10002\033[0m (对应 A轨 VMess 原生极速)"
+            echo -e "  * 映射到 \033[1;32mlocalhost:10003\033[0m (对应 B轨 VLESS WARP兼容)"
+            echo -e "  * 映射到 \033[1;32mlocalhost:10004\033[0m (对应 B轨 VMess WARP兼容)"
             echo -e "\033[1;36m------------------------------------------------------------------\033[0m"
             
             read -p "👉 录入 [A轨 VLESS 10001] 映射的域名 (直接回车保持原样): " IN_D1
@@ -282,5 +277,5 @@ done
 EOF
 chmod +x /usr/bin/st
 
-echo -e "\n\033[1;32m🎉 极简双轨三体矩阵 V1.5.5 (万能兼容版) 部署完毕！\033[0m"
+echo -e "\n\033[1;32m🎉 极简双轨三体矩阵 V1.5.6 (终极无暇版) 部署完毕！\033[0m"
 echo -e "\033[1;37m👉 请在终端输入 \033[1;33mst\033[1;37m 呼出天网大一统中控台！\033[0m"
