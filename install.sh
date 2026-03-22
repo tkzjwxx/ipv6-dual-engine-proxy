@@ -1,9 +1,9 @@
 #!/bin/bash
 # ====================================================================
-# 极简双轨三体矩阵系统 V1.5.2 (Sing-box 1.12+ 纯净 DNS 路由重构版)
+# 极简双轨三体矩阵系统 V1.5.3 (100% 适配 Sing-box 1.12+ 新架构)
 # 核心组件：WARP-GO + Sing-box(双轨6通道) + TCP守护犬 + st中控台
 # ====================================================================
-echo -e "\033[1;36m🚀 正在执行【极简双轨三体矩阵系统 V1.5.2】初始化...\033[0m"
+echo -e "\033[1;36m🚀 正在执行【极简双轨三体矩阵系统 V1.5.3】初始化...\033[0m"
 
 systemctl stop sing-box warp-go cloudflared warp-dog 2>/dev/null
 rm -rf /etc/s-box /usr/bin/c /usr/bin/v /usr/bin/w /usr/bin/r /usr/bin/u /usr/bin/a /usr/bin/w_dog /usr/bin/tw /usr/bin/st /usr/local/bin/sb_gen
@@ -48,7 +48,7 @@ DOMAIN_VMESS_V4=""
 EOF
 
 # ====================================================================
-# 神级重构：采用 DNS 级流量隔离策略，完美符合 1.12+ 架构
+# 史诗级修复：完全采用 1.12.0 最新 DNS 服务器格式与 domain_resolver 机制
 # ====================================================================
 cat << 'EOF' > /usr/local/bin/sb_gen
 #!/bin/bash
@@ -65,28 +65,23 @@ V4_TAGS="[]"
 [ "$VLESS_V4" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "vless", "tag": "vless-v4-in", "listen": "127.0.0.1", "listen_port": 10003, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "flow": ""}], "transport": {"type": "ws", "path": "/vless-v4"}, "sniff": true, "sniff_override_destination": true}]') && V4_TAGS=$(echo "$V4_TAGS" | jq '. + ["vless-v4-in"]')
 [ "$VMESS_V4" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq '. + [{"type": "vmess", "tag": "vmess-v4-in", "listen": "127.0.0.1", "listen_port": 10004, "users": [{"uuid": "d3b2a1a1-5f2a-4a2a-8c2a-1a2a3a4a5a6a", "alterId": 0}], "transport": {"type": "ws", "path": "/vmess-v4"}, "sniff": true, "sniff_override_destination": true}]') && V4_TAGS=$(echo "$V4_TAGS" | jq '. + ["vmess-v4-in"]')
 
-DNS_RULES="[]"
-[ "$(echo "$V6_TAGS" | jq 'length')" -gt 0 ] && DNS_RULES=$(echo "$DNS_RULES" | jq --argjson tags "$V6_TAGS" '. + [{"inbound": $tags, "server": "dns-v6"}]')
-[ "$(echo "$V4_TAGS" | jq 'length')" -gt 0 ] && DNS_RULES=$(echo "$DNS_RULES" | jq --argjson tags "$V4_TAGS" '. + [{"inbound": $tags, "server": "dns-v4"}]')
-
 RULES="[]"
 [ "$(echo "$V6_TAGS" | jq 'length')" -gt 0 ] && RULES=$(echo "$RULES" | jq --argjson tags "$V6_TAGS" '. + [{"inbound": $tags, "outbound": "direct-v6"}]')
 [ "$(echo "$V4_TAGS" | jq 'length')" -gt 0 ] && RULES=$(echo "$RULES" | jq --argjson tags "$V4_TAGS" '. + [{"inbound": $tags, "outbound": "direct-v4"}]')
 
-jq -n --argjson inbounds "$INBOUNDS" --argjson rules "$RULES" --argjson dns_rules "$DNS_RULES" '{
+jq -n --argjson inbounds "$INBOUNDS" --argjson rules "$RULES" '{
     log: {level: "error"},
     dns: {
         servers: [
-            {tag: "dns-v6", address: "2606:4700:4700::1111", strategy: "ipv6_only"},
-            {tag: "dns-v4", address: "1.1.1.1", strategy: "ipv4_only"}
+            {tag: "dns-v6", type: "udp", server: "2606:4700:4700::1111"},
+            {tag: "dns-v4", type: "udp", server: "1.1.1.1"}
         ],
-        rules: $dns_rules,
         independent_cache: true
     },
     inbounds: $inbounds,
     outbounds: [
-      {type: "direct", tag: "direct-v6"},
-      {type: "direct", tag: "direct-v4"}
+      {type: "direct", tag: "direct-v6", domain_resolver: {server: "dns-v6", strategy: "ipv6_only"}},
+      {type: "direct", tag: "direct-v4", domain_resolver: {server: "dns-v4", strategy: "ipv4_only"}}
     ],
     route: {rules: $rules}
 }' > /etc/s-box/sing-box.json
@@ -148,7 +143,7 @@ while true; do
     source /etc/s-box/status.env
     clear
     echo -e "\033[1;36m==================================================================\033[0m"
-    echo -e "\033[1;37m           🛡️ 极简双轨三体矩阵总控台 (V1.5.2 DNS重构版)           \033[0m"
+    echo -e "\033[1;37m           🛡️ 极简双轨三体矩阵总控台 (V1.5.3 终极重构版)          \033[0m"
     echo -e "\033[1;36m==================================================================\033[0m"
     
     MEM=$(free -m | awk 'NR==2{printf "%.1f%%", $3*100/$2 }' 2>/dev/null || echo "未知")
@@ -255,36 +250,4 @@ while true; do
             echo ""
             if [ "$HY2_V6" = "1" ]; then echo -e "\033[1;35m[A轨] HY2 (原生 V6):\033[0m\n\033[40;32m hysteria2://$PW@[$IP]:8443/?sni=bing.com&insecure=1#A轨-原生-HY2 \033[0m\n"; fi
             if [ "$VLESS_V6" = "1" ]; then 
-                echo -e "\033[1;35m[A轨] VLESS (原生 V6 / Argo穿透):\033[0m\n\033[40;32m vless://$UUID@$D_V1:443?encryption=none&security=tls&sni=$D_V1&type=ws&host=$D_V1&path=%2Fvless-v6#A轨-VLESS-直连 \033[0m"
-                echo -e "\033[1;90m(提示：当前默认直连您的专属域名保证连通率。若需极致提速，可在客户端把【地址/Address】改为优选IP)\033[0m\n"
-            fi
-            if [ "$VMESS_V6" = "1" ]; then echo -e "\033[1;35m[A轨] VMess (原生 V6 / Argo穿透):\033[0m\n\033[40;32m vmess://$(echo -n "{\"v\":\"2\",\"ps\":\"A轨-VMess\",\"add\":\"$D_M1\",\"port\":\"443\",\"id\":\"$UUID\",\"aid\":\"0\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"$D_M1\",\"path\":\"/vmess-v6\",\"tls\":\"tls\"}" | base64 -w 0) \033[0m\n"; fi
-            
-            if [ "$HY2_V4" = "1" ]; then echo -e "\033[1;34m[B轨] HY2 (WARP V4兼容):\033[0m\n\033[40;32m hysteria2://$PW@[$IP]:8444/?sni=bing.com&insecure=1#B轨-WARP-HY2 \033[0m\n"; fi
-            if [ "$VLESS_V4" = "1" ]; then 
-                echo -e "\033[1;34m[B轨] VLESS (WARP V4 / Argo穿透):\033[0m\n\033[40;32m vless://$UUID@$D_V2:443?encryption=none&security=tls&sni=$D_V2&type=ws&host=$D_V2&path=%2Fvless-v4#B轨-VLESS-直连 \033[0m"
-                echo -e "\033[1;90m(提示：当前默认直连您的专属域名保证连通率。若需极致提速，可在客户端把【地址/Address】改为优选IP)\033[0m\n"
-            fi
-            if [ "$VMESS_V4" = "1" ]; then echo -e "\033[1;34m[B轨] VMess (WARP V4 / Argo穿透):\033[0m\n\033[40;32m vmess://$(echo -n "{\"v\":\"2\",\"ps\":\"B轨-VMess\",\"add\":\"$D_M2\",\"port\":\"443\",\"id\":\"$UUID\",\"aid\":\"0\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"$D_M2\",\"path\":\"/vmess-v4\",\"tls\":\"tls\"}" | base64 -w 0) \033[0m\n"; fi
-            read -n 1 -s -r -p "按任意键返回菜单..."
-            ;;
-        9) echo -e "\033[1;36m📜 追踪底层日志 (Ctrl+C 退出)...\033[0m"; journalctl -u sing-box --no-pager --output cat -f -n 50 ;;
-        10)
-            echo -e "\033[1;31m⚠️ 正在执行物理自毁...\033[0m"
-            systemctl stop sing-box cloudflared warp-go warp-dog 2>/dev/null
-            systemctl disable sing-box cloudflared warp-dog 2>/dev/null
-            rm -rf /etc/s-box /usr/local/bin/sb_gen /usr/local/bin/cloudflared /etc/systemd/system/cloudflared.service /etc/systemd/system/sing-box.service /etc/systemd/system/warp-dog.service /usr/bin/w_dog /usr/bin/tw /usr/bin/st
-            systemctl daemon-reload
-            [ -f "/root/CFwarp.sh" ] && bash /root/CFwarp.sh
-            rm -f /root/CFwarp.sh
-            echo -e "\033[1;32m🎉 彻底物理超度完毕！系统已恢复出厂纯净。\033[0m"; exit 0
-            ;;
-        0) clear; exit 0 ;;
-        *) echo -e "\033[1;31m❌ 无效指令！\033[0m"; sleep 1 ;;
-    esac
-done
-EOF
-chmod +x /usr/bin/st
-
-echo -e "\n\033[1;32m🎉 极简双轨三体矩阵 V1.5.2 (DNS路由重构版) 部署完毕！\033[0m"
-echo -e "\033[1;37m👉 请在终端输入 \033[1;33mst\033[1;37m 呼出天网大一统中控台！\033[0m"
+                echo -e "\033[1;35m[A轨] VLESS (原生 V6 / Argo穿透):\033[0m\n\033[40;32m v
