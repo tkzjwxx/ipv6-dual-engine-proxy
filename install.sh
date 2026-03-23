@@ -1,9 +1,9 @@
 #!/bin/bash
 # ====================================================================
-# 极简双轨三体矩阵系统 V1.5.6 (终极物理破壁版 | 专治 LXC 残血小鸡)
+# 极简双轨三体矩阵系统 V1.5.7 (终极防线 | 1.12+ 官方规范重构版)
 # 核心组件：WARP-GO + Sing-box(双轨6通道) + TCP守护犬 + st中控台
 # ====================================================================
-echo -e "\033[1;36m🚀 正在执行【极简双轨三体矩阵系统 V1.5.6】初始化...\033[0m"
+echo -e "\033[1;36m🚀 正在执行【极简双轨三体矩阵系统 V1.5.7】终极初始化...\033[0m"
 
 systemctl stop sing-box warp-go cloudflared warp-dog 2>/dev/null
 rm -rf /etc/s-box /usr/bin/c /usr/bin/v /usr/bin/w /usr/bin/r /usr/bin/u /usr/bin/a /usr/bin/w_dog /usr/bin/tw /usr/bin/st /usr/local/bin/sb_gen
@@ -48,7 +48,7 @@ DOMAIN_VMESS_V4=""
 EOF
 
 # ====================================================================
-# 终极净化：抹除 sniff 嗅探，监听泛化 ::，启用 1.12+ 最新语法
+# 终极修复：完美补齐 dns 模块，彻底解决 empty domain_resolver.server 报错
 # ====================================================================
 cat << 'EOF' > /usr/local/bin/sb_gen
 #!/bin/bash
@@ -70,11 +70,16 @@ RULES="[]"
 [ "$(echo "$V4_TAGS" | jq 'length')" -gt 0 ] && RULES=$(echo "$RULES" | jq --argjson tags "$V4_TAGS" '. + [{"inbound": $tags, "outbound": "direct-v4"}]')
 
 jq -n --argjson inbounds "$INBOUNDS" --argjson rules "$RULES" '{
-    log: {level: "error"},
+    log: {level: "warn"},
+    dns: {
+        servers: [
+            {tag: "dns-local", address: "local"}
+        ]
+    },
     inbounds: $inbounds,
     outbounds: [
-      {type: "direct", tag: "direct-v6", domain_resolver: {strategy: "ipv6_only"}},
-      {type: "direct", tag: "direct-v4", domain_resolver: {strategy: "ipv4_only"}}
+      {type: "direct", tag: "direct-v6", domain_resolver: {server: "dns-local", strategy: "ipv6_only"}},
+      {type: "direct", tag: "direct-v4", domain_resolver: {server: "dns-local", strategy: "ipv4_only"}}
     ],
     route: {
         rules: $rules,
@@ -139,7 +144,7 @@ while true; do
     source /etc/s-box/status.env
     clear
     echo -e "\033[1;36m==================================================================\033[0m"
-    echo -e "\033[1;37m           🛡️ 极简双轨三体矩阵总控台 (V1.5.6 物理破壁版)          \033[0m"
+    echo -e "\033[1;37m         🛡️ 极简双轨三体矩阵总控台 (V1.5.7 终极无暇版)        \033[0m"
     echo -e "\033[1;36m==================================================================\033[0m"
     
     MEM=$(free -m | awk 'NR==2{printf "%.1f%%", $3*100/$2 }' 2>/dev/null || echo "未知")
@@ -277,5 +282,5 @@ done
 EOF
 chmod +x /usr/bin/st
 
-echo -e "\n\033[1;32m🎉 极简双轨三体矩阵 V1.5.6 (终极无暇版) 部署完毕！\033[0m"
+echo -e "\n\033[1;32m🎉 极简双轨三体矩阵 V1.5.7 (无暇兼容版) 部署完毕！\033[0m"
 echo -e "\033[1;37m👉 请在终端输入 \033[1;33mst\033[1;37m 呼出天网大一统中控台！\033[0m"
