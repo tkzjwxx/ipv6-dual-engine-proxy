@@ -1,10 +1,11 @@
 #!/bin/bash
 # ====================================================================
-# 极简单轨 WARP 稳定版 (退回 3 协议架构 | 抛弃分流，回归稳定)
+# 极简单轨 WARP 稳定版 V2.0 (抛弃一切分流与DNS配置，回归绝对稳定)
 # 核心组件：WARP-GO + Sing-box(3通道) + st中控台
 # ====================================================================
-echo -e "\033[1;36m🚀 正在执行【极简单轨 WARP 稳定版】初始化...\033[0m"
+echo -e "\033[1;36m🚀 正在执行【极简单轨 WARP 稳定版 V2.0】绝对初始化...\033[0m"
 
+# 1. 深度清理历史遗留的垃圾进程和配置
 systemctl stop sing-box warp-go cloudflared warp-dog 2>/dev/null
 rm -rf /etc/s-box /usr/bin/c /usr/bin/v /usr/bin/w /usr/bin/r /usr/bin/u /usr/bin/a /usr/bin/w_dog /usr/bin/tw /usr/bin/st /usr/local/bin/sb_gen
 apt-get update -y >/dev/null 2>&1
@@ -43,7 +44,7 @@ DOMAIN_VMESS=""
 EOF
 
 # ====================================================================
-# 回归原始：没有任何 DNS 劫持，没有任何分流策略，纯粹的 Direct 出站
+# 绝对纯净架构：没有任何 DNS，没有任何高级路由，只有最原始的进和出！
 # ====================================================================
 cat << 'EOF' > /usr/local/bin/sb_gen
 #!/bin/bash
@@ -64,8 +65,6 @@ jq -n --argjson inbounds "$INBOUNDS" '{
         auto_detect_interface: false
     }
 }' > /etc/s-box/sing-box.json
-
-systemctl restart sing-box >/dev/null 2>&1
 EOF
 chmod +x /usr/local/bin/sb_gen
 
@@ -81,8 +80,11 @@ LimitNOFILE=512000
 WantedBy=multi-user.target
 EOF
 
+# 注意这里！先重载配置，再生成并启动，彻底阻断死锁逻辑！
+systemctl daemon-reload
 /usr/local/bin/sb_gen
-systemctl daemon-reload && systemctl enable --now sing-box >/dev/null 2>&1
+systemctl enable --now sing-box >/dev/null 2>&1
+systemctl restart sing-box >/dev/null 2>&1
 
 echo -e "\n\033[1;33m🐕 第三阶段：植入 WARP TCP 无感守护犬...\033[0m"
 cat << 'EOF' > /usr/bin/w_dog
@@ -122,7 +124,7 @@ while true; do
     source /etc/s-box/status.env
     clear
     echo -e "\033[1;36m==================================================================\033[0m"
-    echo -e "\033[1;37m             🛡️ 极简单轨 WARP 稳定版总控台 (稳如老狗)            \033[0m"
+    echo -e "\033[1;37m           🛡️ 极简单轨 WARP 稳定版总控台 (V2.0 终极纯净版)       \033[0m"
     echo -e "\033[1;36m==================================================================\033[0m"
     
     MEM=$(free -m | awk 'NR==2{printf "%.1f%%", $3*100/$2 }' 2>/dev/null || echo "未知")
@@ -146,7 +148,7 @@ while true; do
     echo -e "------------------------------------------------------------------"
     echo -e " \033[1;35m>>> ⚙️ 系统管理 <<<\033[0m"
     echo -e "  [\033[1;36m4\033[0m] ☁️ Argo 隧道部署 & 专属域名自动化绑定向导"
-    echo -e "  [\033[1;36m5\033[0m] 🔗 提取所有直通节点 (自动填充域名)"
+    echo -e "  [\033[1;36m5\033[0m] 🔗 提取所有免修改直通节点 (自动填充域名)"
     echo -e "  [\033[1;36m6\033[0m] 📜 追踪 Sing-box 实时底层日志"
     echo -e "  [\033[1;36m7\033[0m] ⚠️ 执行物理自毁程序 (卸载清理)"
     echo -e "  [\033[1;36m0\033[0m] 🚪 退出面板"
@@ -222,5 +224,5 @@ done
 EOF
 chmod +x /usr/bin/st
 
-echo -e "\n\033[1;32m🎉 极简单轨 WARP 稳定版部署完毕！\033[0m"
+echo -e "\n\033[1;32m🎉 极简单轨 WARP 稳定版 V2.0 部署完毕！\033[0m"
 echo -e "\033[1;37m👉 请在终端输入 \033[1;33mst\033[1;37m 呼出天网大一统中控台！\033[0m"
