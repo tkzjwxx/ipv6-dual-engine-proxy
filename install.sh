@@ -1,53 +1,86 @@
 #!/bin/bash
 # ====================================================================
-# 极简单轨 WARP 稳定版 V3.1 (双源 IP 全自动引导·终极实验版)
-# 核心：自动引导配置 (全局 WARP + 本地 SOCKS5) -> 鉴伪实验
+# 极简单轨 WARP 稳定版 V3.2 (双源 IP · 影子 SOCKS5 自驱版)
+# 核心：保留全局 warp-go，自动构建完全独立的 wireproxy SOCKS5
 # ====================================================================
-echo -e "\033[1;36m🚀 正在执行【V3.1 双源 IP 全自动引导版】初始化...\033[0m"
+echo -e "\033[1;36m🚀 正在执行【V3.2 双源 IP 影子 SOCKS5 自驱版】初始化...\033[0m"
 
 if [ -f /etc/s-box/status.env ]; then cp /etc/s-box/status.env /tmp/status_backup.env; fi
 
-systemctl stop sing-box cloudflared warp-dog 2>/dev/null
-rm -rf /etc/s-box /usr/bin/c /usr/bin/v /usr/bin/w /usr/bin/r /usr/bin/u /usr/bin/a /usr/bin/w_dog /usr/bin/tw /usr/bin/st /usr/local/bin/sb_gen
+# ⚠️ 注意：这里绝对不能 kill 掉 warp-go，我们要保留你刚才装好的全局 IPv4！
+systemctl stop sing-box wireproxy cloudflared warp-dog 2>/dev/null
+rm -rf /etc/s-box/wireproxy /usr/bin/st /usr/local/bin/sb_gen
 apt-get update -y >/dev/null 2>&1
 apt-get install -y curl wget jq openssl cron nano coreutils >/dev/null 2>&1
 mkdir -p /etc/s-box
 
-echo "prefer-family = IPv6" > ~/.wgetrc
-if [ ! -f /etc/gai.conf ]; then touch /etc/gai.conf; fi
-
-# ====================================================================
-# 智能双重环境侦测与自动引导 (核心修复)
-# ====================================================================
-echo -e "\n\033[1;32m🌐 正在校验 [第一重] 全局 WARP IPv4 状态...\033[0m"
+echo -e "\n\033[1;32m🌐 校验宿主全局 IPv4 状态...\033[0m"
 if ! curl -s4 -m 5 api.ipify.org >/dev/null; then
-    echo -e "\033[1;33m⚠️ 未检测到全局 IPv4，准备呼出勇哥脚本...\033[0m"
-    echo -e "\033[1;31m👉 【步骤 1】请在接下来的菜单中，选择安装【WARP 全局模式】！\033[0m"
-    echo -e "\033[1;31m👉 安装成功获取 IP 后，输入 0 退出菜单继续！\033[0m"
-    sleep 5
-    rm -f /root/CFwarp.sh
-    curl -sL -o /root/CFwarp.sh https://raw.githubusercontent.com/yonggekkk/warp-yg/main/CFwarp.sh
-    chmod +x /root/CFwarp.sh
-    bash /root/CFwarp.sh
-else
-    echo -e "\033[1;32m✅ 全局 IPv4 已就绪！\033[0m"
+    echo -e "\033[1;31m❌ 致命错误：全局 IPv4 丢失！请先运行 cf 脚本选择 1 安装全局 WARP！\033[0m"
+    exit 1
+fi
+echo -e "\033[1;32m✅ 全局 IPv4 状态极佳，准备骗过 CF 注册第二套独立密钥...\033[0m"
+
+# ====================================================================
+# 核心黑科技：绕过勇哥脚本，手搓独立 Wireproxy SOCKS5 通道
+# ====================================================================
+echo -e "\n\033[1;35m⏳ 正在构建影子 SOCKS5 (Wireproxy) 引擎，大概需要 30 秒，请耐心等待...\033[0m"
+mkdir -p /etc/s-box/wireproxy
+cd /etc/s-box/wireproxy
+
+# 下载 wgcf 与 wireproxy
+curl -sL -o /usr/local/bin/wgcf https://github.com/ViRb3/wgcf/releases/download/v2.2.22/wgcf_2.2.22_linux_amd64
+curl -sL -o /tmp/wireproxy.tar.gz https://github.com/pufferffish/wireproxy/releases/download/v1.0.8/wireproxy_linux_amd64.tar.gz
+chmod +x /usr/local/bin/wgcf
+tar -xzf /tmp/wireproxy.tar.gz -C /usr/local/bin/ >/dev/null 2>&1
+chmod +x /usr/local/bin/wireproxy
+
+# 利用当前的 WARP V4 环境，强行注册第二枚独立 IP 密钥
+rm -f wgcf-account.toml wgcf-profile.conf
+echo | wgcf register --accept-tos >/dev/null 2>&1
+wgcf generate >/dev/null 2>&1
+
+if [ ! -f wgcf-profile.conf ]; then
+    echo -e "\033[1;31m❌ 独立密钥生成失败！Cloudflare 可能暂行限流，请稍后再试。\033[0m"
+    exit 1
 fi
 
-echo -e "\n\033[1;32m🌐 正在校验 [第二重] SOCKS5 (40000端口) 状态...\033[0m"
-if ! curl -sx socks5h://127.0.0.1:40000 -m 5 api.ipify.org >/dev/null; then
-    echo -e "\033[1;33m⚠️ 未检测到 SOCKS5 代理端口，准备再次呼出勇哥脚本...\033[0m"
-    echo -e "\033[1;31m👉 【步骤 2】请在接下来的菜单中，选择【安装/管理 SOCKS5 代理】！\033[0m"
-    echo -e "\033[1;31m👉 端口务必保持默认的 40000！安装完毕后输入 0 退出菜单！\033[0m"
-    sleep 5
-    rm -f /root/CFwarp.sh
-    curl -sL -o /root/CFwarp.sh https://raw.githubusercontent.com/yonggekkk/warp-yg/main/CFwarp.sh
-    chmod +x /root/CFwarp.sh
-    bash /root/CFwarp.sh
-else
-    echo -e "\033[1;32m✅ 独立 SOCKS5 通道已就绪！\033[0m"
-fi
+# 提取参数，构建完全独立的 SOCKS5 本地监听
+PK=$(grep PrivateKey wgcf-profile.conf | cut -d= -f2 | tr -d ' ')
+ADDR_V4=$(grep Address wgcf-profile.conf | head -n 1 | cut -d= -f2 | tr -d ' ')
+ADDR_V6=$(grep Address wgcf-profile.conf | tail -n 1 | cut -d= -f2 | tr -d ' ')
 
-echo -e "\n\033[1;33m📦 第三阶段：拉取 Sing-box 核心并构建双擎环境...\033[0m"
+cat << EOF > /etc/s-box/wireproxy/wireproxy.conf
+[Interface]
+PrivateKey = $PK
+Address = $ADDR_V4
+Address = $ADDR_V6
+MTU = 1280
+
+[Peer]
+PublicKey = bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=
+Endpoint = 162.159.192.1:2408
+Keepalive = 25
+
+[Socks5]
+BindAddress = 127.0.0.1:40000
+EOF
+
+cat > /etc/systemd/system/wireproxy.service << 'EOF'
+[Unit]
+Description=Shadow Wireproxy SOCKS5
+After=network.target
+[Service]
+ExecStart=/usr/local/bin/wireproxy -c /etc/s-box/wireproxy/wireproxy.conf
+Restart=always
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now wireproxy >/dev/null 2>&1
+
+echo -e "\n\033[1;33m📦 拉取 Sing-box 核心并构建双擎环境...\033[0m"
 S_URL=$(curl -sL --connect-timeout 5 -A "Mozilla/5.0" "https://api.github.com/repos/SagerNet/sing-box/releases/latest" | grep -o 'https://[^"]*linux-amd64\.tar\.gz' | head -n 1)
 [ -z "$S_URL" ] && S_URL="https://github.com/SagerNet/sing-box/releases/download/v1.10.1/sing-box-1.10.1-linux-amd64.tar.gz"
 curl -sL --connect-timeout 15 -o /tmp/sbox.tar.gz "$S_URL"
@@ -78,7 +111,6 @@ cat << 'EOF' > /usr/local/bin/sb_gen
 #!/bin/bash
 source /etc/s-box/status.env
 INBOUNDS="[]"
-
 [ "$HY2_ON" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq --arg pw "$SYS_PW" '. + [{"type": "hysteria2", "tag": "hy2-in", "listen": "::", "listen_port": 8443, "users": [{"password": $pw}], "tls": {"enabled": true, "server_name": "bing.com", "certificate_path": "/etc/s-box/hy2.crt", "key_path": "/etc/s-box/hy2.key"}}]')
 [ "$VLESS_ON" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq --arg uuid "$SYS_UUID" '. + [{"type": "vless", "tag": "vless-in", "listen": "127.0.0.1", "listen_port": 10001, "users": [{"uuid": $uuid, "flow": ""}], "transport": {"type": "ws", "path": "/vless"}}]')
 [ "$VMESS_ON" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq --arg uuid "$SYS_UUID" '. + [{"type": "vmess", "tag": "vmess-in", "listen": "127.0.0.1", "listen_port": 10002, "users": [{"uuid": $uuid, "alterId": 0}], "transport": {"type": "ws", "path": "/vmess"}}]')
@@ -122,7 +154,7 @@ EOF
 
 systemctl daemon-reload; /usr/local/bin/sb_gen; systemctl enable --now sing-box >/dev/null 2>&1
 
-echo -e "\n\033[1;33m🐕 第四阶段：植入双路独立 IP 雷达探针...\033[0m"
+echo -e "\n\033[1;33m🐕 第四阶段：植入双路雷达...\033[0m"
 cat << 'EOF' > /usr/bin/w_dog
 #!/bin/bash
 LOG_FILE="/etc/s-box/warp_dog.log"
@@ -141,11 +173,16 @@ while true; do
         LAST_G_IP="$NEW_G_IP"
     fi
 
-    NEW_S_IP=$(curl -sx socks5h://127.0.0.1:40000 -m 5 api.ipify.org 2>/dev/null)
-    if [ -n "$NEW_S_IP" ] && [ "$NEW_S_IP" != "$LAST_S_IP" ]; then
-        if [ -n "$LAST_S_IP" ]; then echo "$(date '+%m-%d %H:%M') | 🔄 节点漂移: $LAST_S_IP -> $NEW_S_IP" >> "/etc/s-box/drift.log"; fi
-        echo "$NEW_S_IP" > /etc/s-box/last_s_ip.txt
-        LAST_S_IP="$NEW_S_IP"
+    if ! curl -sx socks5h://127.0.0.1:40000 -m 5 api.ipify.org >/dev/null 2>&1; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') | 🚨 Wireproxy 40000 死锁！重启中..." >> "$LOG_FILE"
+        systemctl restart wireproxy 2>/dev/null
+    else
+        NEW_S_IP=$(curl -sx socks5h://127.0.0.1:40000 -m 5 api.ipify.org 2>/dev/null)
+        if [ -n "$NEW_S_IP" ] && [ "$NEW_S_IP" != "$LAST_S_IP" ]; then
+            if [ -n "$LAST_S_IP" ]; then echo "$(date '+%m-%d %H:%M') | 🔄 节点漂移: $LAST_S_IP -> $NEW_S_IP" >> "/etc/s-box/drift.log"; fi
+            echo "$NEW_S_IP" > /etc/s-box/last_s_ip.txt
+            LAST_S_IP="$NEW_S_IP"
+        fi
     fi
 done
 EOF
@@ -162,14 +199,14 @@ WantedBy=multi-user.target
 EOF
 systemctl daemon-reload && systemctl enable --now warp-dog >/dev/null 2>&1
 
-echo -e "\n\033[1;35m🌌 最终阶段：构建 V3.1 终极鉴伪中控台...\033[0m"
+echo -e "\n\033[1;35m🌌 构建 V3.2 终极鉴伪中控台...\033[0m"
 cat << 'EOF' > /usr/bin/st
 #!/bin/bash
 while true; do
     source /etc/s-box/status.env
     clear
     echo -e "\033[1;36m==================================================================\033[0m"
-    echo -e "\033[1;37m        🛡️ 极简单轨稳定版总控台 (V3.1 异源双 IP 鉴伪版)      \033[0m"
+    echo -e "\033[1;37m      🛡️ 极简单轨稳定版总控台 (V3.2 影子 SOCKS 双引擎极客版)    \033[0m"
     echo -e "\033[1;36m==================================================================\033[0m"
     
     MEM=$(free -m | awk 'NR==2{printf "%.1f%%", $3*100/$2 }' 2>/dev/null || echo "未知")
@@ -180,7 +217,7 @@ while true; do
     V4_SOCKS=$(curl -sx socks5h://127.0.0.1:40000 -m 3 api.ipify.org 2>/dev/null)
     
     [ -z "$V4_GLOBAL" ] && V4_G_DISP="\033[1;31m未获取到 (全局出站瘫痪)\033[0m" || V4_G_DISP="\033[1;37m$V4_GLOBAL\033[0m [\033[1;33m宿主全局承载\033[0m]"
-    [ -z "$V4_SOCKS" ]  && V4_S_DISP="\033[1;31m40000端口不通 (SOCKS未开启)\033[0m" || V4_S_DISP="\033[1;32m$V4_SOCKS\033[0m [\033[1;36m节点独立出口\033[0m]"
+    [ -z "$V4_SOCKS" ]  && V4_S_DISP="\033[1;31m40000端口不通 (影子引擎未启动)\033[0m" || V4_S_DISP="\033[1;32m$V4_SOCKS\033[0m [\033[1;36m节点独立出口\033[0m]"
     
     if [ -n "$V4_GLOBAL" ] && [ -n "$V4_SOCKS" ]; then
         if [ "$V4_GLOBAL" == "$V4_SOCKS" ]; then
@@ -216,7 +253,7 @@ while true; do
     echo -e " \033[1;34m>>> ⚙️ 系统策略与工具 <<<\033[0m"
     echo -e "  [\033[1;36m4\033[0m] ☁️ Argo 隧道部署 & 专属域名绑定"
     echo -e "  [\033[1;36m5\033[0m] 🔗 提取所有节点链接 (自动填充高强度密钥)"
-    echo -e "  [\033[1;36m6\033[0m] 📜 追踪 Sing-box 实时底层日志"
+    echo -e "  [\033[1;36m6\033[0m] 📜 追踪底层日志 (Sing-box & Wireproxy)"
     echo -e "  [\033[1;36m7\033[0m] ⚠️ 执行物理自毁程序"
     echo -e "  [\033[1;36m0\033[0m] 🚪 退出面板"
     echo -e "\033[1;36m==================================================================\033[0m"
@@ -256,12 +293,12 @@ while true; do
             if [ "$VMESS_ON" = "1" ]; then echo -e "\033[1;35m[协议 3] VMess (Argo穿透):\033[0m\n\033[40;32m vmess://$(echo -n "{\"v\":\"2\",\"ps\":\"Socks-VMess\",\"add\":\"$D_M1\",\"port\":\"443\",\"id\":\"$SYS_UUID\",\"aid\":\"0\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"$D_M1\",\"path\":\"/vmess\",\"tls\":\"tls\"}" | base64 -w 0) \033[0m\n"; fi
             read -n 1 -s -r -p "按任意键返回菜单..."
             ;;
-        6) echo -e "\033[1;36m📜 追踪底层日志 (Ctrl+C 退出)...\033[0m"; journalctl -u sing-box --no-pager --output cat -f -n 50 ;;
+        6) echo -e "\033[1;36m📜 追踪底层日志 (Ctrl+C 退出)...\033[0m"; echo "--- Wireproxy ---"; journalctl -u wireproxy -n 10 --no-pager; echo -e "\n--- Sing-box ---"; journalctl -u sing-box -n 20 --no-pager; read -n 1 -s -r -p "按任意键返回..." ;;
         7)
             echo -e "\033[1;31m⚠️ 正在执行物理卸载...\033[0m"
-            systemctl stop sing-box cloudflared warp-dog 2>/dev/null; systemctl disable sing-box cloudflared warp-dog 2>/dev/null
-            rm -rf /etc/s-box /usr/local/bin/sb_gen /usr/local/bin/cloudflared /etc/systemd/system/cloudflared.service /etc/systemd/system/sing-box.service /etc/systemd/system/warp-dog.service /usr/bin/w_dog /usr/bin/tw /usr/bin/st; systemctl daemon-reload
-            echo -e "\033[1;32m🎉 彻底卸载完毕！\033[0m"; exit 0 ;;
+            systemctl stop sing-box wireproxy cloudflared warp-dog 2>/dev/null; systemctl disable sing-box wireproxy cloudflared warp-dog 2>/dev/null
+            rm -rf /etc/s-box /usr/local/bin/wgcf /usr/local/bin/wireproxy /usr/local/bin/sb_gen /usr/local/bin/cloudflared /etc/systemd/system/cloudflared.service /etc/systemd/system/sing-box.service /etc/systemd/system/warp-dog.service /etc/systemd/system/wireproxy.service /usr/bin/w_dog /usr/bin/st; systemctl daemon-reload
+            echo -e "\033[1;32m🎉 彻底卸载完毕！(注: 全局WARP被保留以保护机器)\033[0m"; exit 0 ;;
         0) clear; exit 0 ;;
         *) echo -e "\033[1;31m❌ 无效指令！\033[0m"; sleep 1 ;;
     esac
@@ -269,5 +306,5 @@ done
 EOF
 chmod +x /usr/bin/st
 
-echo -e "\n\033[1;32m🎉 V3.1 自动引导版部署完毕！\033[0m"
-echo -e "\033[1;37m👉 请在终端输入 \033[1;33mst\033[1;37m 呼出面板，看看你的双 IP 点亮了没有！\033[0m"
+echo -e "\n\033[1;32m🎉 V3.2 影子 SOCKS5 自驱版部署完毕！\033[0m"
+echo -e "\033[1;37m👉 请在终端输入 \033[1;33mst\033[1;37m 呼出面板，见证双 IP 的诞生！\033[0m"
