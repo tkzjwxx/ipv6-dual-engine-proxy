@@ -1,9 +1,9 @@
 #!/bin/bash
 # ====================================================================
-# 极简单轨 WARP 稳定版 V3.3 (双源 IP · 影子 SOCKS5 终极修Bug版)
-# 核心：修复 Base64 截断 Bug，完美拉起双引擎
+# 极简单轨 WARP 稳定版 V3.5 (双源 IP · 影子 SOCKS5 终极贯通版)
+# 核心：强制 Wireproxy 使用纯 IPv6 接入点，彻底打破路由死锁！
 # ====================================================================
-echo -e "\033[1;36m🚀 正在执行【V3.3 双源 IP 修复版】初始化...\033[0m"
+echo -e "\033[1;36m🚀 正在执行【V3.5 双源 IP 终极贯通版】初始化...\033[0m"
 
 if [ -f /etc/s-box/status.env ]; then cp /etc/s-box/status.env /tmp/status_backup.env; fi
 
@@ -20,9 +20,6 @@ if ! curl -s4 -m 5 api.ipify.org >/dev/null; then
 fi
 echo -e "\033[1;32m✅ 全局 IPv4 在线，准备生成双开密钥...\033[0m"
 
-# ====================================================================
-# 修复：完美剥离参数，绝不误伤 Base64 结尾的等号
-# ====================================================================
 echo -e "\n\033[1;35m⏳ 正在构建影子 SOCKS5 (Wireproxy) 引擎，请稍候...\033[0m"
 mkdir -p /etc/s-box/wireproxy
 cd /etc/s-box/wireproxy
@@ -42,11 +39,11 @@ if [ ! -f wgcf-profile.conf ]; then
     exit 1
 fi
 
-# 核心 Bug 修复处！改用 awk -F ' = ' 保证等号完整性
-PK=$(awk -F ' = ' '/PrivateKey/ {print $2}' wgcf-profile.conf)
-ADDR_V4=$(awk -F ' = ' '/Address/ {print $2}' wgcf-profile.conf | head -n 1)
-ADDR_V6=$(awk -F ' = ' '/Address/ {print $2}' wgcf-profile.conf | tail -n 1)
+PK=$(grep -m 1 'PrivateKey' wgcf-profile.conf | awk '{print $3}' | tr -d '\r')
+ADDR_V4=$(grep -m 1 'Address' wgcf-profile.conf | awk '{print $3}' | tr -d '\r')
+ADDR_V6=$(grep 'Address' wgcf-profile.conf | tail -n 1 | awk '{print $3}' | tr -d '\r')
 
+# 核心修改：将 Endpoint 强制改为 IPv6 官方地址，破除套娃路由死锁！
 cat << EOF > /etc/s-box/wireproxy/wireproxy.conf
 [Interface]
 PrivateKey = $PK
@@ -56,7 +53,7 @@ MTU = 1280
 
 [Peer]
 PublicKey = bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=
-Endpoint = 162.159.192.1:2408
+Endpoint = [2606:4700:d0::a29f:c001]:2408
 Keepalive = 25
 
 [Socks5]
@@ -196,14 +193,14 @@ WantedBy=multi-user.target
 EOF
 systemctl daemon-reload && systemctl enable --now warp-dog >/dev/null 2>&1
 
-echo -e "\n\033[1;35m🌌 最终阶段：构建 V3.3 终极中控台...\033[0m"
+echo -e "\n\033[1;35m🌌 最终阶段：构建 V3.5 终极中控台...\033[0m"
 cat << 'EOF' > /usr/bin/st
 #!/bin/bash
 while true; do
     source /etc/s-box/status.env
     clear
     echo -e "\033[1;36m==================================================================\033[0m"
-    echo -e "\033[1;37m      🛡️ 极简单轨稳定版总控台 (V3.3 影子 SOCKS 完美双擎版)    \033[0m"
+    echo -e "\033[1;37m      🛡️ 极简单轨稳定版总控台 (V3.5 影子 SOCKS 终极贯通版)    \033[0m"
     echo -e "\033[1;36m==================================================================\033[0m"
     
     MEM=$(free -m | awk 'NR==2{printf "%.1f%%", $3*100/$2 }' 2>/dev/null || echo "未知")
@@ -214,7 +211,7 @@ while true; do
     V4_SOCKS=$(curl -sx socks5h://127.0.0.1:40000 -m 3 api.ipify.org 2>/dev/null)
     
     [ -z "$V4_GLOBAL" ] && V4_G_DISP="\033[1;31m未获取到 (全局出站瘫痪)\033[0m" || V4_G_DISP="\033[1;37m$V4_GLOBAL\033[0m [\033[1;33m宿主全局承载\033[0m]"
-    [ -z "$V4_SOCKS" ]  && V4_S_DISP="\033[1;31m40000端口不通 (影子引擎未启动)\033[0m" || V4_S_DISP="\033[1;32m$V4_SOCKS\033[0m [\033[1;36m节点独立出口\033[0m]"
+    [ -z "$V4_SOCKS" ]  && V4_S_DISP="\033[1;31m40000端口握手失败或未启动\033[0m" || V4_S_DISP="\033[1;32m$V4_SOCKS\033[0m [\033[1;36m节点独立出口\033[0m]"
     
     if [ -n "$V4_GLOBAL" ] && [ -n "$V4_SOCKS" ]; then
         if [ "$V4_GLOBAL" == "$V4_SOCKS" ]; then
@@ -223,7 +220,7 @@ while true; do
             IP_STATUS="\033[1;32m🎉 恭喜: 获取到两枚独立 IP，双擎并联成功！\033[0m"
         fi
     else
-        IP_STATUS="\033[1;90m⏳ 等待双路 IP 就绪...\033[0m"
+        IP_STATUS="\033[1;90m⏳ 引擎握手中，等待双路 IP 就绪...\033[0m"
     fi
 
     LAST_DRIFT=$(tail -n 1 /etc/s-box/drift.log 2>/dev/null | awk -F'|' '{print $2}')
@@ -303,5 +300,5 @@ done
 EOF
 chmod +x /usr/bin/st
 
-echo -e "\n\033[1;32m🎉 V3.3 彻底修复完毕！\033[0m"
-echo -e "\033[1;37m👉 请在终端输入 \033[1;33mst\033[1;37m 呼出面板，去迎接你的双 IP 吧！\033[0m"
+echo -e "\n\033[1;32m🎉 V3.5 终极贯通版部署完毕！\033[0m"
+echo -e "\033[1;37m👉 赶快敲入 \033[1;33mst\033[1;37m 见证你的异源双 IP 奇迹！\033[0m"
