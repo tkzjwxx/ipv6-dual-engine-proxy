@@ -1,13 +1,12 @@
 #!/bin/bash
 # ====================================================================
-# 极简单轨 WARP 稳定版 V3.2 (双源 IP · 影子 SOCKS5 自驱版)
-# 核心：保留全局 warp-go，自动构建完全独立的 wireproxy SOCKS5
+# 极简单轨 WARP 稳定版 V3.3 (双源 IP · 影子 SOCKS5 终极修Bug版)
+# 核心：修复 Base64 截断 Bug，完美拉起双引擎
 # ====================================================================
-echo -e "\033[1;36m🚀 正在执行【V3.2 双源 IP 影子 SOCKS5 自驱版】初始化...\033[0m"
+echo -e "\033[1;36m🚀 正在执行【V3.3 双源 IP 修复版】初始化...\033[0m"
 
 if [ -f /etc/s-box/status.env ]; then cp /etc/s-box/status.env /tmp/status_backup.env; fi
 
-# ⚠️ 注意：这里绝对不能 kill 掉 warp-go，我们要保留你刚才装好的全局 IPv4！
 systemctl stop sing-box wireproxy cloudflared warp-dog 2>/dev/null
 rm -rf /etc/s-box/wireproxy /usr/bin/st /usr/local/bin/sb_gen
 apt-get update -y >/dev/null 2>&1
@@ -19,36 +18,34 @@ if ! curl -s4 -m 5 api.ipify.org >/dev/null; then
     echo -e "\033[1;31m❌ 致命错误：全局 IPv4 丢失！请先运行 cf 脚本选择 1 安装全局 WARP！\033[0m"
     exit 1
 fi
-echo -e "\033[1;32m✅ 全局 IPv4 状态极佳，准备骗过 CF 注册第二套独立密钥...\033[0m"
+echo -e "\033[1;32m✅ 全局 IPv4 在线，准备生成双开密钥...\033[0m"
 
 # ====================================================================
-# 核心黑科技：绕过勇哥脚本，手搓独立 Wireproxy SOCKS5 通道
+# 修复：完美剥离参数，绝不误伤 Base64 结尾的等号
 # ====================================================================
-echo -e "\n\033[1;35m⏳ 正在构建影子 SOCKS5 (Wireproxy) 引擎，大概需要 30 秒，请耐心等待...\033[0m"
+echo -e "\n\033[1;35m⏳ 正在构建影子 SOCKS5 (Wireproxy) 引擎，请稍候...\033[0m"
 mkdir -p /etc/s-box/wireproxy
 cd /etc/s-box/wireproxy
 
-# 下载 wgcf 与 wireproxy
 curl -sL -o /usr/local/bin/wgcf https://github.com/ViRb3/wgcf/releases/download/v2.2.22/wgcf_2.2.22_linux_amd64
 curl -sL -o /tmp/wireproxy.tar.gz https://github.com/pufferffish/wireproxy/releases/download/v1.0.8/wireproxy_linux_amd64.tar.gz
 chmod +x /usr/local/bin/wgcf
 tar -xzf /tmp/wireproxy.tar.gz -C /usr/local/bin/ >/dev/null 2>&1
 chmod +x /usr/local/bin/wireproxy
 
-# 利用当前的 WARP V4 环境，强行注册第二枚独立 IP 密钥
 rm -f wgcf-account.toml wgcf-profile.conf
 echo | wgcf register --accept-tos >/dev/null 2>&1
 wgcf generate >/dev/null 2>&1
 
 if [ ! -f wgcf-profile.conf ]; then
-    echo -e "\033[1;31m❌ 独立密钥生成失败！Cloudflare 可能暂行限流，请稍后再试。\033[0m"
+    echo -e "\033[1;31m❌ 独立密钥生成失败！请稍后再试。\033[0m"
     exit 1
 fi
 
-# 提取参数，构建完全独立的 SOCKS5 本地监听
-PK=$(grep PrivateKey wgcf-profile.conf | cut -d= -f2 | tr -d ' ')
-ADDR_V4=$(grep Address wgcf-profile.conf | head -n 1 | cut -d= -f2 | tr -d ' ')
-ADDR_V6=$(grep Address wgcf-profile.conf | tail -n 1 | cut -d= -f2 | tr -d ' ')
+# 核心 Bug 修复处！改用 awk -F ' = ' 保证等号完整性
+PK=$(awk -F ' = ' '/PrivateKey/ {print $2}' wgcf-profile.conf)
+ADDR_V4=$(awk -F ' = ' '/Address/ {print $2}' wgcf-profile.conf | head -n 1)
+ADDR_V6=$(awk -F ' = ' '/Address/ {print $2}' wgcf-profile.conf | tail -n 1)
 
 cat << EOF > /etc/s-box/wireproxy/wireproxy.conf
 [Interface]
@@ -199,14 +196,14 @@ WantedBy=multi-user.target
 EOF
 systemctl daemon-reload && systemctl enable --now warp-dog >/dev/null 2>&1
 
-echo -e "\n\033[1;35m🌌 构建 V3.2 终极鉴伪中控台...\033[0m"
+echo -e "\n\033[1;35m🌌 最终阶段：构建 V3.3 终极中控台...\033[0m"
 cat << 'EOF' > /usr/bin/st
 #!/bin/bash
 while true; do
     source /etc/s-box/status.env
     clear
     echo -e "\033[1;36m==================================================================\033[0m"
-    echo -e "\033[1;37m      🛡️ 极简单轨稳定版总控台 (V3.2 影子 SOCKS 双引擎极客版)    \033[0m"
+    echo -e "\033[1;37m      🛡️ 极简单轨稳定版总控台 (V3.3 影子 SOCKS 完美双擎版)    \033[0m"
     echo -e "\033[1;36m==================================================================\033[0m"
     
     MEM=$(free -m | awk 'NR==2{printf "%.1f%%", $3*100/$2 }' 2>/dev/null || echo "未知")
@@ -306,5 +303,5 @@ done
 EOF
 chmod +x /usr/bin/st
 
-echo -e "\n\033[1;32m🎉 V3.2 影子 SOCKS5 自驱版部署完毕！\033[0m"
-echo -e "\033[1;37m👉 请在终端输入 \033[1;33mst\033[1;37m 呼出面板，见证双 IP 的诞生！\033[0m"
+echo -e "\n\033[1;32m🎉 V3.3 彻底修复完毕！\033[0m"
+echo -e "\033[1;37m👉 请在终端输入 \033[1;33mst\033[1;37m 呼出面板，去迎接你的双 IP 吧！\033[0m"
