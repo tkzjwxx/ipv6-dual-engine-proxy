@@ -1,14 +1,14 @@
 #!/bin/bash
 # ====================================================================
-# 极简单轨 WARP 稳定版 V3.5 (双源 IP · 影子 SOCKS5 终极贯通版)
-# 核心：强制 Wireproxy 使用纯 IPv6 接入点，彻底打破路由死锁！
+# 极简单轨 WARP 稳定版 V3.6 (双源 IP · 终极打破套娃死锁版)
+# 核心：写入内核级静态路由，强制物理直通，免疫 WARP-in-WARP 拦截
 # ====================================================================
-echo -e "\033[1;36m🚀 正在执行【V3.5 双源 IP 终极贯通版】初始化...\033[0m"
+echo -e "\033[1;36m🚀 正在执行【V3.6 打破套娃终极版】初始化...\033[0m"
 
 if [ -f /etc/s-box/status.env ]; then cp /etc/s-box/status.env /tmp/status_backup.env; fi
 
 systemctl stop sing-box wireproxy cloudflared warp-dog 2>/dev/null
-rm -rf /etc/s-box/wireproxy /usr/bin/st /usr/local/bin/sb_gen
+rm -rf /etc/s-box/wireproxy /usr/bin/st /usr/local/bin/sb_gen /usr/local/bin/run_wireproxy.sh
 apt-get update -y >/dev/null 2>&1
 apt-get install -y curl wget jq openssl cron nano coreutils >/dev/null 2>&1
 mkdir -p /etc/s-box
@@ -43,7 +43,6 @@ PK=$(grep -m 1 'PrivateKey' wgcf-profile.conf | awk '{print $3}' | tr -d '\r')
 ADDR_V4=$(grep -m 1 'Address' wgcf-profile.conf | awk '{print $3}' | tr -d '\r')
 ADDR_V6=$(grep 'Address' wgcf-profile.conf | tail -n 1 | awk '{print $3}' | tr -d '\r')
 
-# 核心修改：将 Endpoint 强制改为 IPv6 官方地址，破除套娃路由死锁！
 cat << EOF > /etc/s-box/wireproxy/wireproxy.conf
 [Interface]
 PrivateKey = $PK
@@ -60,12 +59,37 @@ Keepalive = 25
 BindAddress = 127.0.0.1:40000
 EOF
 
+# ====================================================================
+# 终极内核破壁黑科技：运行前强行植入物理直通路由！
+# ====================================================================
+cat << 'EOF' > /usr/local/bin/run_wireproxy.sh
+#!/bin/bash
+# 智能抓取纯净的物理网卡名称 (排除本地环回、tun、warp虚拟网卡)
+PHYS_IF=$(ls /sys/class/net | grep -v -E 'lo|tun|warp|wg' | head -n 1)
+
+if [ -n "$PHYS_IF" ]; then
+    # 智能抓取该网卡的默认 IPv6 网关
+    PHYS_GW=$(ip -6 route show default dev $PHYS_IF 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="via") print $(i+1)}' | head -n 1)
+    
+    # 强制写入内核路由表，绕过 WARP，直通 CF 节点
+    if [ -n "$PHYS_GW" ]; then
+        ip -6 route replace 2606:4700:d0::a29f:c001/128 via $PHYS_GW dev $PHYS_IF
+    else
+        ip -6 route replace 2606:4700:d0::a29f:c001/128 dev $PHYS_IF
+    fi
+fi
+
+# 路由打通后，拉起引擎
+exec /usr/local/bin/wireproxy -c /etc/s-box/wireproxy/wireproxy.conf
+EOF
+chmod +x /usr/local/bin/run_wireproxy.sh
+
 cat > /etc/systemd/system/wireproxy.service << 'EOF'
 [Unit]
 Description=Shadow Wireproxy SOCKS5
 After=network.target
 [Service]
-ExecStart=/usr/local/bin/wireproxy -c /etc/s-box/wireproxy/wireproxy.conf
+ExecStart=/usr/local/bin/run_wireproxy.sh
 Restart=always
 [Install]
 WantedBy=multi-user.target
@@ -193,14 +217,14 @@ WantedBy=multi-user.target
 EOF
 systemctl daemon-reload && systemctl enable --now warp-dog >/dev/null 2>&1
 
-echo -e "\n\033[1;35m🌌 最终阶段：构建 V3.5 终极中控台...\033[0m"
+echo -e "\n\033[1;35m🌌 最终阶段：构建 V3.6 终极中控台...\033[0m"
 cat << 'EOF' > /usr/bin/st
 #!/bin/bash
 while true; do
     source /etc/s-box/status.env
     clear
     echo -e "\033[1;36m==================================================================\033[0m"
-    echo -e "\033[1;37m      🛡️ 极简单轨稳定版总控台 (V3.5 影子 SOCKS 终极贯通版)    \033[0m"
+    echo -e "\033[1;37m      🛡️ 极简单轨稳定版总控台 (V3.6 打破套娃终极直通版)    \033[0m"
     echo -e "\033[1;36m==================================================================\033[0m"
     
     MEM=$(free -m | awk 'NR==2{printf "%.1f%%", $3*100/$2 }' 2>/dev/null || echo "未知")
@@ -291,7 +315,7 @@ while true; do
         7)
             echo -e "\033[1;31m⚠️ 正在执行物理卸载...\033[0m"
             systemctl stop sing-box wireproxy cloudflared warp-dog 2>/dev/null; systemctl disable sing-box wireproxy cloudflared warp-dog 2>/dev/null
-            rm -rf /etc/s-box /usr/local/bin/wgcf /usr/local/bin/wireproxy /usr/local/bin/sb_gen /usr/local/bin/cloudflared /etc/systemd/system/cloudflared.service /etc/systemd/system/sing-box.service /etc/systemd/system/warp-dog.service /etc/systemd/system/wireproxy.service /usr/bin/w_dog /usr/bin/st; systemctl daemon-reload
+            rm -rf /etc/s-box /usr/local/bin/wgcf /usr/local/bin/wireproxy /usr/local/bin/sb_gen /usr/local/bin/run_wireproxy.sh /usr/local/bin/cloudflared /etc/systemd/system/cloudflared.service /etc/systemd/system/sing-box.service /etc/systemd/system/warp-dog.service /etc/systemd/system/wireproxy.service /usr/bin/w_dog /usr/bin/st; systemctl daemon-reload
             echo -e "\033[1;32m🎉 彻底卸载完毕！(注: 全局WARP被保留以保护机器)\033[0m"; exit 0 ;;
         0) clear; exit 0 ;;
         *) echo -e "\033[1;31m❌ 无效指令！\033[0m"; sleep 1 ;;
@@ -300,5 +324,5 @@ done
 EOF
 chmod +x /usr/bin/st
 
-echo -e "\n\033[1;32m🎉 V3.5 终极贯通版部署完毕！\033[0m"
-echo -e "\033[1;37m👉 赶快敲入 \033[1;33mst\033[1;37m 见证你的异源双 IP 奇迹！\033[0m"
+echo -e "\n\033[1;32m🎉 V3.6 打破套娃终极直通版部署完毕！\033[0m"
+echo -e "\033[1;37m👉 赶紧敲入 \033[1;33mst\033[1;37m，去点亮你的核显双 IP 吧！\033[0m"
