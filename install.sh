@@ -1,9 +1,9 @@
 #!/bin/bash
 # ====================================================================
-# 极简单轨 WARP 稳定版 V3.0 (双源 IP 终极实验版)
-# 核心：系统全局 WARP + 节点专享本地 SOCKS5 (双重异构 IP)
+# 极简单轨 WARP 稳定版 V3.1 (双源 IP 全自动引导·终极实验版)
+# 核心：自动引导配置 (全局 WARP + 本地 SOCKS5) -> 鉴伪实验
 # ====================================================================
-echo -e "\033[1;36m🚀 正在执行【V3.0 双源 IP 终极实验版】初始化...\033[0m"
+echo -e "\033[1;36m🚀 正在执行【V3.1 双源 IP 全自动引导版】初始化...\033[0m"
 
 if [ -f /etc/s-box/status.env ]; then cp /etc/s-box/status.env /tmp/status_backup.env; fi
 
@@ -16,7 +16,38 @@ mkdir -p /etc/s-box
 echo "prefer-family = IPv6" > ~/.wgetrc
 if [ ! -f /etc/gai.conf ]; then touch /etc/gai.conf; fi
 
-echo -e "\n\033[1;33m📦 正在拉取 Sing-box 核心并构建双擎环境...\033[0m"
+# ====================================================================
+# 智能双重环境侦测与自动引导 (核心修复)
+# ====================================================================
+echo -e "\n\033[1;32m🌐 正在校验 [第一重] 全局 WARP IPv4 状态...\033[0m"
+if ! curl -s4 -m 5 api.ipify.org >/dev/null; then
+    echo -e "\033[1;33m⚠️ 未检测到全局 IPv4，准备呼出勇哥脚本...\033[0m"
+    echo -e "\033[1;31m👉 【步骤 1】请在接下来的菜单中，选择安装【WARP 全局模式】！\033[0m"
+    echo -e "\033[1;31m👉 安装成功获取 IP 后，输入 0 退出菜单继续！\033[0m"
+    sleep 5
+    rm -f /root/CFwarp.sh
+    curl -sL -o /root/CFwarp.sh https://raw.githubusercontent.com/yonggekkk/warp-yg/main/CFwarp.sh
+    chmod +x /root/CFwarp.sh
+    bash /root/CFwarp.sh
+else
+    echo -e "\033[1;32m✅ 全局 IPv4 已就绪！\033[0m"
+fi
+
+echo -e "\n\033[1;32m🌐 正在校验 [第二重] SOCKS5 (40000端口) 状态...\033[0m"
+if ! curl -sx socks5h://127.0.0.1:40000 -m 5 api.ipify.org >/dev/null; then
+    echo -e "\033[1;33m⚠️ 未检测到 SOCKS5 代理端口，准备再次呼出勇哥脚本...\033[0m"
+    echo -e "\033[1;31m👉 【步骤 2】请在接下来的菜单中，选择【安装/管理 SOCKS5 代理】！\033[0m"
+    echo -e "\033[1;31m👉 端口务必保持默认的 40000！安装完毕后输入 0 退出菜单！\033[0m"
+    sleep 5
+    rm -f /root/CFwarp.sh
+    curl -sL -o /root/CFwarp.sh https://raw.githubusercontent.com/yonggekkk/warp-yg/main/CFwarp.sh
+    chmod +x /root/CFwarp.sh
+    bash /root/CFwarp.sh
+else
+    echo -e "\033[1;32m✅ 独立 SOCKS5 通道已就绪！\033[0m"
+fi
+
+echo -e "\n\033[1;33m📦 第三阶段：拉取 Sing-box 核心并构建双擎环境...\033[0m"
 S_URL=$(curl -sL --connect-timeout 5 -A "Mozilla/5.0" "https://api.github.com/repos/SagerNet/sing-box/releases/latest" | grep -o 'https://[^"]*linux-amd64\.tar\.gz' | head -n 1)
 [ -z "$S_URL" ] && S_URL="https://github.com/SagerNet/sing-box/releases/download/v1.10.1/sing-box-1.10.1-linux-amd64.tar.gz"
 curl -sL --connect-timeout 15 -o /tmp/sbox.tar.gz "$S_URL"
@@ -43,9 +74,6 @@ SYS_PW="$SYS_PW"
 EOF
 fi
 
-# ====================================================================
-# 极限隔离：节点流量 100% 强行灌入 40000 SOCKS5 端口
-# ====================================================================
 cat << 'EOF' > /usr/local/bin/sb_gen
 #!/bin/bash
 source /etc/s-box/status.env
@@ -94,7 +122,7 @@ EOF
 
 systemctl daemon-reload; /usr/local/bin/sb_gen; systemctl enable --now sing-box >/dev/null 2>&1
 
-echo -e "\n\033[1;33m🐕 第三阶段：植入双路独立 IP 雷达探针...\033[0m"
+echo -e "\n\033[1;33m🐕 第四阶段：植入双路独立 IP 雷达探针...\033[0m"
 cat << 'EOF' > /usr/bin/w_dog
 #!/bin/bash
 LOG_FILE="/etc/s-box/warp_dog.log"
@@ -106,7 +134,6 @@ while true; do
     sleep 60
     if [ $(wc -l < "$LOG_FILE") -gt 1000 ]; then > "$LOG_FILE"; fi
     
-    # 侦测全局 IP
     NEW_G_IP=$(curl -s4 -m 5 api.ipify.org 2>/dev/null)
     if [ -n "$NEW_G_IP" ] && [ "$NEW_G_IP" != "$LAST_G_IP" ]; then
         if [ -n "$LAST_G_IP" ]; then echo "$(date '+%m-%d %H:%M') | 🔄 全局漂移: $LAST_G_IP -> $NEW_G_IP" >> "/etc/s-box/drift.log"; fi
@@ -114,7 +141,6 @@ while true; do
         LAST_G_IP="$NEW_G_IP"
     fi
 
-    # 侦测 SOCKS5 IP
     NEW_S_IP=$(curl -sx socks5h://127.0.0.1:40000 -m 5 api.ipify.org 2>/dev/null)
     if [ -n "$NEW_S_IP" ] && [ "$NEW_S_IP" != "$LAST_S_IP" ]; then
         if [ -n "$LAST_S_IP" ]; then echo "$(date '+%m-%d %H:%M') | 🔄 节点漂移: $LAST_S_IP -> $NEW_S_IP" >> "/etc/s-box/drift.log"; fi
@@ -136,31 +162,29 @@ WantedBy=multi-user.target
 EOF
 systemctl daemon-reload && systemctl enable --now warp-dog >/dev/null 2>&1
 
-echo -e "\n\033[1;35m🌌 第四阶段：构建 V3.0 双源核显中控台 (st)...\033[0m"
+echo -e "\n\033[1;35m🌌 最终阶段：构建 V3.1 终极鉴伪中控台...\033[0m"
 cat << 'EOF' > /usr/bin/st
 #!/bin/bash
 while true; do
     source /etc/s-box/status.env
     clear
     echo -e "\033[1;36m==================================================================\033[0m"
-    echo -e "\033[1;37m        🛡️ 极简单轨稳定版总控台 (V3.0 异源双 IP 鉴伪版)      \033[0m"
+    echo -e "\033[1;37m        🛡️ 极简单轨稳定版总控台 (V3.1 异源双 IP 鉴伪版)      \033[0m"
     echo -e "\033[1;36m==================================================================\033[0m"
     
     MEM=$(free -m | awk 'NR==2{printf "%.1f%%", $3*100/$2 }' 2>/dev/null || echo "未知")
     CPU=$(top -bn1 2>/dev/null | grep load | awk '{printf "%.2f", $(NF-2)}' || echo "未知")
     UPTIME=$(uptime -p 2>/dev/null | sed 's/up //')
     
-    # 核心：物理隔离双重探测
     V4_GLOBAL=$(curl -s4 -m 3 api.ipify.org 2>/dev/null)
     V4_SOCKS=$(curl -sx socks5h://127.0.0.1:40000 -m 3 api.ipify.org 2>/dev/null)
     
     [ -z "$V4_GLOBAL" ] && V4_G_DISP="\033[1;31m未获取到 (全局出站瘫痪)\033[0m" || V4_G_DISP="\033[1;37m$V4_GLOBAL\033[0m [\033[1;33m宿主全局承载\033[0m]"
     [ -z "$V4_SOCKS" ]  && V4_S_DISP="\033[1;31m40000端口不通 (SOCKS未开启)\033[0m" || V4_S_DISP="\033[1;32m$V4_SOCKS\033[0m [\033[1;36m节点独立出口\033[0m]"
     
-    # IP 异同判定逻辑
     if [ -n "$V4_GLOBAL" ] && [ -n "$V4_SOCKS" ]; then
         if [ "$V4_GLOBAL" == "$V4_SOCKS" ]; then
-            IP_STATUS="\033[1;31m⚠️ 警告: 两者 IP 相同，双开实验失败！\033[0m"
+            IP_STATUS="\033[1;31m⚠️ 警告: 两者 IP 相同，双开失去意义！\033[0m"
         else
             IP_STATUS="\033[1;32m🎉 恭喜: 获取到两枚独立 IP，双擎并联成功！\033[0m"
         fi
@@ -245,5 +269,5 @@ done
 EOF
 chmod +x /usr/bin/st
 
-echo -e "\n\033[1;32m🎉 极简单轨稳定版 V3.0 部署完毕！\033[0m"
-echo -e "\033[1;37m👉 请在终端输入 \033[1;33mst\033[1;37m 呼出核显矩阵中控台，亲自验证你的推断吧！\033[0m"
+echo -e "\n\033[1;32m🎉 V3.1 自动引导版部署完毕！\033[0m"
+echo -e "\033[1;37m👉 请在终端输入 \033[1;33mst\033[1;37m 呼出面板，看看你的双 IP 点亮了没有！\033[0m"
