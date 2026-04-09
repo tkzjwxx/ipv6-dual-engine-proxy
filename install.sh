@@ -1,9 +1,9 @@
 #!/bin/bash
 # ====================================================================
-# 极简单轨 WARP 稳定版 V2.4 (终极臻纯版：全景探针 + 漂移雷达)
-# 核心架构：系统全局 WARP + Sing-box(纯物理直通) + st中控台
+# 极简单轨稳定版 V2.5 (终极臻纯版：全景探针 + 漂移雷达)
+# 核心架构：系统全局环境侦测 + Sing-box(纯物理直通) + st中控台
 # ====================================================================
-echo -e "\033[1;36m🚀 正在执行【极简单轨 WARP 稳定版 V2.4】臻纯初始化...\033[0m"
+echo -e "\033[1;36m🚀 正在执行【极简单轨稳定版 V2.5】臻纯初始化...\033[0m"
 
 # 1. 核心状态持久化（保护随机密钥与域名）
 if [ -f /etc/s-box/status.env ]; then
@@ -11,28 +11,47 @@ if [ -f /etc/s-box/status.env ]; then
     echo -e "\033[1;32m✅ 检测到历史配置，已自动备份节点密钥与域名...\033[0m"
 fi
 
-# 2. 彻底清理历史环境与冲突进程
-systemctl stop sing-box warp-go cloudflared warp-dog 2>/dev/null
+# 2. 彻底清理历史环境与冲突进程 (保留底层 WARP 环境)
+systemctl stop sing-box cloudflared warp-dog 2>/dev/null
 rm -rf /etc/s-box /usr/bin/c /usr/bin/v /usr/bin/w /usr/bin/r /usr/bin/u /usr/bin/a /usr/bin/w_dog /usr/bin/tw /usr/bin/st /usr/local/bin/sb_gen
 apt-get update -y >/dev/null 2>&1
 apt-get install -y curl wget jq openssl cron nano coreutils >/dev/null 2>&1
 mkdir -p /etc/s-box
-touch /etc/s-box/drift.log /etc/s-box/warp_dog.log # 初始化日志防报错
+touch /etc/s-box/drift.log /etc/s-box/warp_dog.log
 
-echo "prefer-family = IPv6" > ~/.wgetrc
 if [ ! -f /etc/gai.conf ]; then touch /etc/gai.conf; fi
 
-echo -e "\n\033[1;32m🌐 正在校验系统全局 IPv4 连通性...\033[0m"
-if ! curl -s4 -m 5 api.ipify.org >/dev/null; then
-    rm -f /root/CFwarp.sh
-    curl -sL -o /root/CFwarp.sh https://raw.githubusercontent.com/yonggekkk/warp-yg/main/CFwarp.sh
-    chmod +x /root/CFwarp.sh
-    echo -e "\033[1;33m⚠️ 未检测到全局 WARP，即将呼出菜单...\033[0m"
-    echo -e "\033[1;31m👉 请务必选择安装【WARP 全局模式】，成功获取 IP 后输 0 退出！\033[0m"
-    sleep 4; bash /root/CFwarp.sh
-fi
+# ================= 柔性侦测阶段 =================
+echo -e "\n\033[1;34m🔍 第一阶段：侦测系统网络与 WARP 全局环境...\033[0m"
+W_V4=$(curl -s4 -m 3 "https://1.1.1.1/cdn-cgi/trace" 2>/dev/null | grep -q "warp=" && echo "yes" || echo "no")
+W_V6=$(curl -s6 -m 3 "https://[2606:4700:4700::1111]/cdn-cgi/trace" 2>/dev/null | grep -q "warp=" && echo "yes" || echo "no")
 
-echo -e "\n\033[1;33m📦 第二阶段：拉取 Sing-box 核心并生成安全参数...\033[0m"
+if [ "$W_V4" = "yes" ] || [ "$W_V6" = "yes" ]; then
+    echo -e "\033[1;32m✅ 极好！已检测到 WARP 正在接管全局网络，通道顺畅。\033[0m"
+else
+    echo -e "\033[1;33m⚠️ 警告：未检测到 WARP 活跃特征 (或请求超时)。\033[0m"
+    echo -e "\033[1;33m⚠️ 本脚本将无视该警告继续强行安装核心面板，请稍后自行排查网络状态。\033[0m"
+fi
+sleep 2
+
+# ================= 优先级向导阶段 =================
+echo -e "\n\033[1;36m==================================================================\033[0m"
+echo -e "\033[1;33m🚦 初始化：请配置本机的默认【出站优先级】\033[0m"
+echo -e "\033[1;36m==================================================================\033[0m"
+echo -e " [\033[1;32m1\033[0m] IPv4 优先出战 (推荐！防双栈死锁，兼容性最强)"
+echo -e " [\033[1;32m2\033[0m] IPv6 优先出战 (适合纯 IPv6 机器或有特定需求)"
+read -p "👉 请选择 (1/2，直接回车默认选 1): " PRIO_CHOICE
+
+sed -i '/^precedence ::ffff:0:0\/96/d' /etc/gai.conf 2>/dev/null
+if [ "$PRIO_CHOICE" = "2" ]; then
+    echo -e "\033[1;32m✅ 已设置为：IPv6 优先出战\033[0m"
+else
+    echo "precedence ::ffff:0:0/96  100" >> /etc/gai.conf
+    echo -e "\033[1;32m✅ 已设置为：IPv4 优先出战\033[0m"
+fi
+sleep 2
+
+echo -e "\n\033[1;34m📦 第二阶段：拉取 Sing-box 核心并生成安全参数...\033[0m"
 S_URL=$(curl -sL --connect-timeout 3 -A "Mozilla/5.0" "https://api.github.com/repos/SagerNet/sing-box/releases/latest" | grep -o 'https://[^"]*linux-amd64\.tar\.gz' | head -n 1)
 [ -z "$S_URL" ] && S_URL="https://github.com/SagerNet/sing-box/releases/download/v1.11.4/sing-box-1.11.4-linux-amd64.tar.gz"
 curl -sL --connect-timeout 15 -o /tmp/sbox.tar.gz "$S_URL"
@@ -59,6 +78,7 @@ SYS_PW="$SYS_PW"
 EOF
 fi
 
+# ================= 动态生成配置核心 (修复 v1.12.0+ 语法规范) =================
 cat << 'EOF' > /usr/local/bin/sb_gen
 #!/bin/bash
 source /etc/s-box/status.env
@@ -68,11 +88,22 @@ INBOUNDS="[]"
 [ "$VLESS_ON" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq --arg uuid "$SYS_UUID" '. + [{"type": "vless", "tag": "vless-in", "listen": "127.0.0.1", "listen_port": 10001, "users": [{"uuid": $uuid, "flow": ""}], "transport": {"type": "ws", "path": "/vless"}}]')
 [ "$VMESS_ON" = "1" ] && INBOUNDS=$(echo "$INBOUNDS" | jq --arg uuid "$SYS_UUID" '. + [{"type": "vmess", "tag": "vmess-in", "listen": "127.0.0.1", "listen_port": 10002, "users": [{"uuid": $uuid, "alterId": 0}], "transport": {"type": "ws", "path": "/vmess"}}]')
 
-jq -n --argjson inbounds "$INBOUNDS" '{
+# 读取底层 gai.conf 动态注入 Sing-box 优先级策略
+if grep -q "^precedence ::ffff:0:0/96.*100" /etc/gai.conf 2>/dev/null; then
+    STRATEGY="prefer_ipv4"
+else
+    STRATEGY="prefer_ipv6"
+fi
+
+jq -n --argjson inbounds "$INBOUNDS" --arg strategy "$STRATEGY" '{
     log: {level: "warn"},
     inbounds: $inbounds,
     outbounds: [
-      {type: "direct", tag: "direct-out"}
+      {
+        type: "direct",
+        tag: "direct-out",
+        domain_strategy: $strategy
+      }
     ],
     route: {
         auto_detect_interface: false
@@ -81,11 +112,13 @@ jq -n --argjson inbounds "$INBOUNDS" '{
 EOF
 chmod +x /usr/local/bin/sb_gen
 
+# ================= 注册系统服务 (强制开启废弃语法兼容模式) =================
 cat > /etc/systemd/system/sing-box.service << 'EOF'
 [Unit]
 Description=Sing-box Dynamic Core
 After=network.target
 [Service]
+Environment="ENABLE_DEPRECATED_LEGACY_DOMAIN_STRATEGY_OPTIONS=true"
 ExecStart=/etc/s-box/sing-box run -c /etc/s-box/sing-box.json
 Restart=always
 LimitNOFILE=512000
@@ -96,9 +129,8 @@ EOF
 systemctl daemon-reload
 /usr/local/bin/sb_gen
 systemctl enable --now sing-box >/dev/null 2>&1
-systemctl restart sing-box >/dev/null 2>&1
 
-echo -e "\n\033[1;33m🐕 第三阶段：植入 WARP 漂移监控与死锁守护犬...\033[0m"
+echo -e "\n\033[1;34m🐕 第三阶段：植入 WARP 漂移监控与守护犬...\033[0m"
 cat << 'EOF' > /usr/bin/w_dog
 #!/bin/bash
 LOG_FILE="/etc/s-box/warp_dog.log"
@@ -108,16 +140,16 @@ while true; do
     sleep 60
     if [ $(wc -l < "$LOG_FILE" 2>/dev/null || echo 0) -gt 1000 ]; then > "$LOG_FILE"; fi
     
-    # 1. 死锁复苏检测
+    # 1. 死锁检测
     if ! curl -s4 -m 5 "http://1.1.1.1/cdn-cgi/trace" >/dev/null 2>&1; then
         sleep 5
         if ! curl -s4 -m 5 "http://1.0.0.1/cdn-cgi/trace" >/dev/null 2>&1; then
-            echo "$(date '+%Y-%m-%d %H:%M:%S') | 🚨 WARP 全局死锁！执行心肺复苏..." >> "$LOG_FILE"
+            echo "$(date '+%Y-%m-%d %H:%M:%S') | 🚨 检测到网络死锁，尝试重启 WARP 进程..." >> "$LOG_FILE"
             systemctl restart warp-go 2>/dev/null
             sleep 15
         fi
     else
-        # 2. 动态 IP 漂移检测
+        # 2. IP 漂移检测
         NEW_IP=$(curl -s4 -m 3 api.ipify.org 2>/dev/null)
         if [ -n "$NEW_IP" ] && [ "$NEW_IP" != "$LAST_IP" ]; then
             if [ -n "$LAST_IP" ]; then
@@ -132,7 +164,7 @@ EOF
 chmod +x /usr/bin/w_dog
 cat > /etc/systemd/system/warp-dog.service << 'EOF'
 [Unit]
-Description=WARP TCP Watchdog & Drift Monitor
+Description=Network Watchdog & Drift Monitor
 After=network.target
 [Service]
 ExecStart=/usr/bin/w_dog
@@ -142,6 +174,7 @@ WantedBy=multi-user.target
 EOF
 systemctl daemon-reload && systemctl enable --now warp-dog >/dev/null 2>&1
 
+# ================= 构建 ST 极简中控台 =================
 echo -e "\n\033[1;35m🌌 第四阶段：构建极简全景中控台 (st)...\033[0m"
 cat << 'EOF' > /usr/bin/st
 #!/bin/bash
@@ -149,14 +182,13 @@ while true; do
     source /etc/s-box/status.env
     clear
     echo -e "\033[1;36m==================================================================\033[0m"
-    echo -e "\033[1;37m        🛡️ 极简单轨 WARP 稳定版总控台 (V2.4 终极臻纯版)      \033[0m"
+    echo -e "\033[1;37m        🛡️ 极简单轨稳定版总控台 (V2.5 终极臻纯版)      \033[0m"
     echo -e "\033[1;36m==================================================================\033[0m"
     
     MEM=$(free -m | awk 'NR==2{printf "%.1f%%", $3*100/$2 }' 2>/dev/null || echo "未知")
     CPU=$(top -bn1 2>/dev/null | grep load | awk '{printf "%.2f", $(NF-2)}' || echo "未知")
     UPTIME=$(uptime -p 2>/dev/null | sed 's/up //')
     
-    # 核心：全景网络侦测矩阵 (优化超时时间，保证面板秒开)
     V4_IP=$(curl -s4 -m 2 api.ipify.org 2>/dev/null)
     V6_IP=$(curl -s6 -m 2 api64.ipify.org 2>/dev/null)
     
@@ -196,7 +228,7 @@ while true; do
     echo -e " \033[1;34m>>> ⚙️ 系统策略与工具 <<<\033[0m"
     echo -e "  [\033[1;36m4\033[0m] ☁️ Argo 隧道部署 & 专属域名自动化绑定"
     echo -e "  [\033[1;36m5\033[0m] 🔗 \033[1;32m提取所有直通节点 (自动填充高强度密钥与域名)\033[0m"
-    echo -e "  [\033[1;36m6\033[0m] 🔀 切换双栈出站优先级 (当前: $PRIORITY_ST \033[1;90m| 推荐IPv4防卡死\033[0m)"
+    echo -e "  [\033[1;36m6\033[0m] 🔀 切换双栈出站优先级 (当前: $PRIORITY_ST \033[1;90m| 实时重启生效\033[0m)"
     echo -e "  [\033[1;36m7\033[0m] 📜 追踪 Sing-box 实时底层日志"
     echo -e "  [\033[1;36m8\033[0m] ⚠️ 执行物理自毁程序 (卸载清理)"
     echo -e "  [\033[1;36m0\033[0m] 🚪 退出面板"
@@ -204,9 +236,9 @@ while true; do
     
     read -p "👉 请输入指令 (0-8): " CMD
     case $CMD in
-        1) [ "$HY2_ON" = "1" ] && N=0 || N=1; sed -i "s/^HY2_ON=.*/HY2_ON=$N/" /etc/s-box/status.env; /usr/local/bin/sb_gen; echo -e "\033[1;32m✅ 状态切换完毕！\033[0m"; sleep 1 ;;
-        2) [ "$VLESS_ON" = "1" ] && N=0 || N=1; sed -i "s/^VLESS_ON=.*/VLESS_ON=$N/" /etc/s-box/status.env; /usr/local/bin/sb_gen; echo -e "\033[1;32m✅ 状态切换完毕！\033[0m"; sleep 1 ;;
-        3) [ "$VMESS_ON" = "1" ] && N=0 || N=1; sed -i "s/^VMESS_ON=.*/VMESS_ON=$N/" /etc/s-box/status.env; /usr/local/bin/sb_gen; echo -e "\033[1;32m✅ 状态切换完毕！\033[0m"; sleep 1 ;;
+        1) [ "$HY2_ON" = "1" ] && N=0 || N=1; sed -i "s/^HY2_ON=.*/HY2_ON=$N/" /etc/s-box/status.env; /usr/local/bin/sb_gen; systemctl restart sing-box; echo -e "\033[1;32m✅ 状态切换完毕并已重启生效！\033[0m"; sleep 1 ;;
+        2) [ "$VLESS_ON" = "1" ] && N=0 || N=1; sed -i "s/^VLESS_ON=.*/VLESS_ON=$N/" /etc/s-box/status.env; /usr/local/bin/sb_gen; systemctl restart sing-box; echo -e "\033[1;32m✅ 状态切换完毕并已重启生效！\033[0m"; sleep 1 ;;
+        3) [ "$VMESS_ON" = "1" ] && N=0 || N=1; sed -i "s/^VMESS_ON=.*/VMESS_ON=$N/" /etc/s-box/status.env; /usr/local/bin/sb_gen; systemctl restart sing-box; echo -e "\033[1;32m✅ 状态切换完毕并已重启生效！\033[0m"; sleep 1 ;;
         4)
             clear
             echo -e "\033[1;36m==================================================================\033[0m"
@@ -239,7 +271,6 @@ while true; do
             read -n 1 -s -r -p "按任意键返回主菜单..."
             ;;
         5)
-            # 优化：精准提取公网全局 IPv6
             IP=$(curl -s6 -m 2 api64.ipify.org 2>/dev/null || ip -6 addr show scope global | grep inet6 | awk '{print $2}' | cut -d/ -f1 | head -n 1)
             [ -z "$IP" ] && IP="获取原生IPv6失败_请检查网卡"
             
@@ -257,24 +288,25 @@ while true; do
         6)
             if grep -q "^precedence ::ffff:0:0/96.*100" /etc/gai.conf 2>/dev/null; then
                 sed -i '/^precedence ::ffff:0:0\/96/d' /etc/gai.conf 2>/dev/null
-                echo -e "\n\033[1;32m✅ 恢复成功！系统已交回默认路由调度 (IPv6 优先)。\033[0m"
+                echo -e "\n\033[1;32m✅ 切换成功！系统现已全局优先走 IPv6 出口。\033[0m"
             else
                 sed -i '/^precedence ::ffff:0:0\/96/d' /etc/gai.conf 2>/dev/null
                 echo "precedence ::ffff:0:0/96  100" >> /etc/gai.conf
-                echo -e "\n\033[1;32m✅ 设置成功！系统现已全局优先走 IPv4 出口 (防双栈卡死)。\033[0m"
+                echo -e "\n\033[1;32m✅ 切换成功！系统现已全局优先走 IPv4 出口 (防双栈卡死)。\033[0m"
             fi
+            echo -e "\033[1;35m🔄 正在重新生成路由策略并重启核心...\033[0m"
+            /usr/local/bin/sb_gen
+            systemctl restart sing-box >/dev/null 2>&1
             sleep 2
             ;;
         7) echo -e "\033[1;36m📜 追踪底层日志 (Ctrl+C 退出)...\033[0m"; journalctl -u sing-box --no-pager --output cat -f -n 50 ;;
         8)
             echo -e "\033[1;31m⚠️ 正在执行物理卸载...\033[0m"
-            systemctl stop sing-box cloudflared warp-go warp-dog 2>/dev/null
+            systemctl stop sing-box cloudflared warp-dog 2>/dev/null
             systemctl disable --now sing-box cloudflared warp-dog 2>/dev/null
             rm -rf /etc/s-box /usr/local/bin/sb_gen /usr/local/bin/cloudflared /etc/systemd/system/cloudflared.service /etc/systemd/system/sing-box.service /etc/systemd/system/warp-dog.service /usr/bin/w_dog /usr/bin/st
             systemctl daemon-reload
-            [ -f "/root/CFwarp.sh" ] && bash /root/CFwarp.sh
-            rm -f /root/CFwarp.sh
-            echo -e "\033[1;32m🎉 彻底物理卸载完毕！系统已恢复。\033[0m"; exit 0
+            echo -e "\033[1;32m🎉 彻底物理卸载完毕！核心组件已清除 (未卸载基础 WARP)。\033[0m"; exit 0
             ;;
         0) clear; exit 0 ;;
         *) echo -e "\033[1;31m❌ 无效指令！\033[0m"; sleep 1 ;;
@@ -283,5 +315,5 @@ done
 EOF
 chmod +x /usr/bin/st
 
-echo -e "\n\033[1;32m🎉 极简单轨 WARP 稳定版 V2.4 (终极臻纯版) 部署完毕！\033[0m"
+echo -e "\n\033[1;32m🎉 极简单轨稳定版 V2.5 (终极臻纯版) 部署完毕！\033[0m"
 echo -e "\033[1;37m👉 请在终端输入 \033[1;33mst\033[1;37m 呼出天网大一统中控台！安心享受网络吧！\033[0m"
